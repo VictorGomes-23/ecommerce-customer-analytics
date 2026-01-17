@@ -388,11 +388,11 @@ Based on our exploration, here are the critical findings:
 
 **Dataset Overview:**
 
-- Total records: [will be filled after running code]
-- Date range: [will be filled after running code]
-- Unique customers: [will be filled after running code]
-- Unique products: [will be filled after running code]
-- Geographic coverage: [will be filled after running code]
+- Total records: 541,909 transactions
+- Date range: December 1, 2010 to December 9, 2011 (373 days, approximately 13 months)
+- Unique customers: 4,372 customers
+- Unique products: 4,070 stock codes
+- Geographic coverage: 38 countries
 
 **Data Quality Issues Identified:**
 
