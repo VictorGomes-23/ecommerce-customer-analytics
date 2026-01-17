@@ -1,0 +1,431 @@
+---
+title: "Data Exploration - Online Retail Dataset"
+author: "Joao Victor Barbosa Gomes"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+    theme: flatly
+    highlight: tango
+---
+
+# Project Overview
+
+This notebook performs initial exploratory data analysis on the Online Retail Dataset from UCI Machine Learning Repository. The goal is to understand the data structure, identify quality issues, and prepare for subsequent cleaning and analysis.
+
+**Dataset:** Online Retail Dataset (UCI)  
+**Period:** December 2010 - December 2011  
+**Business Context:** UK-based non-store online retail specializing in unique all-occasion gifts
+
+---
+
+# Setup and Configuration
+
+First, we'll set up our R environment with necessary configurations and load required libraries.
+
+```{r setup, include=FALSE}
+# Configure code chunk defaults for the entire document
+knitr::opts_chunk$set(
+  echo = TRUE,        # Show code in output
+  warning = FALSE,    # Hide warnings
+  message = FALSE,    # Hide messages
+  fig.width = 10,     # Figure width
+  fig.height = 6,     # Figure height
+  fig.align = 'center' # Center figures
+)
+```
+
+```{r load-libraries}
+# Data manipulation and analysis
+library(tidyverse)      # Core data manipulation (dplyr, ggplot2, etc.)
+library(lubridate)      # Date and time handling
+library(here)           # Relative file paths
+
+# Data exploration and summaries
+library(skimr)          # Comprehensive data summaries
+library(scales)         # Number and axis formatting
+
+# Data import
+library(readxl)         # Reading Excel files
+```
+
+**What we just did:** Loaded essential R packages for data manipulation, visualization, and exploration. The `here` package ensures our file paths work regardless of where the project is located.
+
+---
+
+# Data Import
+
+Now we'll load the raw dataset from the Excel file stored in our data/raw folder.
+
+```{r load-data}
+# Load the raw dataset using relative path
+# here() creates the full path: project_root/data/raw/Online_Retail.csv
+retail_raw <- read_csv(here("data", "raw", "Online_Retail.csv"))
+
+# Display confirmation message
+cat("Dataset loaded successfully!\n")
+cat("Dimensions:", nrow(retail_raw), "rows x", ncol(retail_raw), "columns\n")
+```
+
+**What we found:** The dataset has been successfully imported. We'll now examine its structure and contents in detail.
+
+---
+
+# Initial Data Structure
+
+Let's examine the basic structure of our dataset to understand what variables we're working with.
+
+```{r data-structure}
+# Display compact structure of the dataset
+# Shows column names, data types, and first few values
+glimpse(retail_raw)
+```
+
+**Key observations from structure:**
+
+After running this code, we can observe:
+
+- Number of observations (rows)
+- Number of variables (columns)
+- Data types for each column (character, numeric, datetime, etc.)
+- First few values to get a sense of the data
+
+```{r column-names}
+# List all column names
+names(retail_raw)
+```
+
+**What we found:** We have 8 columns in our dataset. The column names appear to follow a consistent naming convention.
+
+```{r first-rows}
+# View first 10 rows to understand data format
+head(retail_raw, 10)
+```
+
+**Initial impressions:** This gives us a preview of actual transaction records, showing how customers, products, and purchases are recorded.
+
+```{r last-rows}
+# View last 10 rows to check data consistency throughout
+tail(retail_raw, 10)
+```
+
+**What we found:** Checking the tail helps us verify the data remains consistent throughout the dataset and identify any potential ordering or chronological patterns.
+
+---
+
+# Summary Statistics
+
+We'll generate comprehensive summary statistics to understand the distribution and characteristics of each variable.
+
+```{r basic-summary}
+# Generate basic statistical summary for all columns
+summary(retail_raw)
+```
+
+**Key takeaways from summary:**
+
+What we can observe from the summary:
+
+- Range of values for numeric columns (Quantity, UnitPrice) 
+- Date range (InvoiceDate min and max)
+- Number of NAs in each CustomerID
+- Unusual values (negative numbers, zeros)
+
+```{r skim-summary}
+# Generate detailed summary with histograms and statistics
+# This provides more detailed info than summary()
+skim(retail_raw)
+```
+
+**What we learned from skim():**
+
+The `skim()` function gives us:
+
+- Complete rate (percentage of non-missing values)
+- Distribution histograms for numeric variables
+- Unique value counts for character variables
+- Mean, standard deviation, quartiles for numeric data
+
+Anomalies:
+
+- CustomerID has 135080 missing observations causing it to have approximately 75% of completion rate
+- Description has 1454 missing observations causing it to have approximately 99% of completion rate
+
+---
+
+# Data Quality Assessment
+
+Now we'll systematically check for data quality issues that might affect our analysis.
+
+## Missing Values Analysis
+
+```{r missing-values-count}
+# Count missing values in each column
+missing_counts <- colSums(is.na(retail_raw))
+missing_counts
+```
+
+```{r missing-values-percentage}
+# Calculate percentage of missing values for each column
+missing_pct <- (colSums(is.na(retail_raw)) / nrow(retail_raw)) * 100
+
+# Create a clean summary table
+missing_summary <- data.frame(
+  Column = names(missing_pct),
+  Missing_Count = missing_counts,
+  Missing_Percentage = round(missing_pct, 2)
+) %>%
+  arrange(desc(Missing_Percentage))
+
+missing_summary
+```
+
+
+## Duplicate Records Check
+
+```{r duplicates}
+# Check for completely duplicate rows
+n_duplicates <- sum(duplicated(retail_raw))
+
+cat("Number of duplicate rows:", n_duplicates, "\n")
+cat("Percentage of duplicates:", 
+    round((n_duplicates / nrow(retail_raw)) * 100, 2), "%\n")
+```
+
+**Duplicate analysis:** We can see duplicates exist, we'll need to investigate whether they're legitimate (same customer buying same item) or data entry errors.
+
+## Unique Value Counts
+
+```{r unique-values}
+# Count unique values for key identifier columns
+unique_summary <- data.frame(
+  Column = c("InvoiceNo", "StockCode", "CustomerID", "Country"),
+  Unique_Values = c(
+    n_distinct(retail_raw$InvoiceNo),
+    n_distinct(retail_raw$StockCode),
+    n_distinct(retail_raw$CustomerID, na.rm = TRUE),
+    n_distinct(retail_raw$Country)
+  )
+)
+
+unique_summary
+```
+
+**What this tells us:**
+
+- How many unique transactions do we have? 25900
+- How many unique products are sold? 4070
+- How many unique customers (excluding NAs)? 4372
+- How many countries are we selling to? 38
+
+---
+
+# Value Range and Anomaly Detection
+
+Let's examine the ranges of our numeric variables and identify potential outliers or data quality issues.
+
+## Quantity Analysis
+
+```{r quantity-range}
+# Examine the range of Quantity values
+cat("Quantity Statistics:\n")
+cat("Minimum:", min(retail_raw$Quantity, na.rm = TRUE), "\n")
+cat("Maximum:", max(retail_raw$Quantity, na.rm = TRUE), "\n")
+cat("Mean:", round(mean(retail_raw$Quantity, na.rm = TRUE), 2), "\n")
+cat("Median:", median(retail_raw$Quantity, na.rm = TRUE), "\n")
+```
+
+```{r negative-quantities}
+# Count transactions with negative quantities (returns/cancellations)
+n_negative_qty <- sum(retail_raw$Quantity < 0, na.rm = TRUE)
+pct_negative_qty <- (n_negative_qty / nrow(retail_raw)) * 100
+
+cat("Negative quantity records:", n_negative_qty, "\n")
+cat("Percentage:", round(pct_negative_qty, 2), "%\n")
+```
+
+**Quantity findings:** Negative quantities likely represent product returns or cancellations. This is important for our revenue calculations and customer behavior analysis.
+
+## Unit Price Analysis
+
+```{r price-range}
+# Examine the range of UnitPrice values
+cat("Unit Price Statistics:\n")
+cat("Minimum:", min(retail_raw$UnitPrice, na.rm = TRUE), "\n")
+cat("Maximum:", max(retail_raw$UnitPrice, na.rm = TRUE), "\n")
+cat("Mean:", round(mean(retail_raw$UnitPrice, na.rm = TRUE), 2), "\n")
+cat("Median:", median(retail_raw$UnitPrice, na.rm = TRUE), "\n")
+```
+
+```{r zero-negative-prices}
+# Count transactions with zero or negative prices
+n_zero_price <- sum(retail_raw$UnitPrice == 0, na.rm = TRUE)
+n_negative_price <- sum(retail_raw$UnitPrice < 0, na.rm = TRUE)
+
+cat("Zero price records:", n_zero_price, "\n")
+cat("Negative price records:", n_negative_price, "\n")
+cat("Total problematic prices:", n_zero_price + n_negative_price, "\n")
+```
+
+**Price findings:** Zero or negative prices may indicate data quality issues, special transactions (samples, discounts), or administrative entries that we'll need to handle during cleaning.
+
+---
+
+# Temporal Analysis
+
+Understanding the date range and temporal distribution of our data is crucial for time-based analyses.
+
+```{r date-range}
+# First, convert InvoiceDate to proper datetime format
+# The format is "M/D/YYYY H:M" (e.g., "12/1/2010 8:26")
+retail_raw <- retail_raw %>%
+  mutate(InvoiceDate = mdy_hm(InvoiceDate))
+
+# Now extract and display the date range of transactions
+date_range <- range(retail_raw$InvoiceDate, na.rm = TRUE)
+
+cat("Dataset Date Range:\n")
+cat("Start Date:", format(date_range[1], "%B %d, %Y %H:%M"), "\n")
+cat("End Date:", format(date_range[2], "%B %d, %Y %H:%M"), "\n")
+cat("Total Days Covered:", as.numeric(difftime(date_range[2], date_range[1], units = "days")), "\n")
+```
+
+**Temporal coverage:** This tells us how many months of data we have for trend analysis and seasonality detection.
+
+```{r transactions-by-month}
+# Count transactions by month to check for temporal patterns
+retail_raw %>%
+  mutate(YearMonth = format(InvoiceDate, "%Y-%m")) %>%
+  count(YearMonth) %>%
+  arrange(YearMonth)
+```
+
+**Monthly distribution:** This shows whether we have consistent data throughout the period or if there are gaps or unusual spikes.
+
+---
+
+# Geographic Distribution
+
+Let's examine the geographic spread of our customers.
+
+```{r country-distribution}
+# Count transactions by country and calculate percentages
+country_summary <- retail_raw %>%
+  count(Country, name = "Transactions") %>%
+  mutate(Percentage = round((Transactions / sum(Transactions)) * 100, 2)) %>%
+  arrange(desc(Transactions))
+
+# Display top 10 countries
+head(country_summary, 10)
+```
+
+**Geographic insights:** This shows which countries are our primary markets and helps us understand the business's international presence.
+
+```{r uk-dominance}
+# Calculate UK's share of total transactions
+uk_pct <- country_summary %>%
+  filter(Country == "United Kingdom") %>%
+  pull(Percentage)
+
+cat("UK represents", uk_pct, "% of all transactions\n")
+```
+
+**Market concentration:** Understanding geographic concentration helps us decide whether to segment analysis by region or focus primarily on the UK market.
+
+---
+
+# Invoice Pattern Analysis
+
+Let's examine invoice patterns to understand transaction structures.
+
+```{r cancellation-invoices}
+# Identify cancellation invoices (those starting with 'C')
+retail_raw <- retail_raw %>%
+  mutate(IsCancellation = str_starts(InvoiceNo, "C"))
+
+# Count cancellations
+n_cancellations <- sum(retail_raw$IsCancellation, na.rm = TRUE)
+pct_cancellations <- (n_cancellations / nrow(retail_raw)) * 100
+
+cat("Cancellation records:", n_cancellations, "\n")
+cat("Percentage:", round(pct_cancellations, 2), "%\n")
+```
+
+**Cancellation patterns:** Invoices starting with 'C' are cancellations. This is important for calculating net revenue and understanding customer behavior.
+
+---
+
+# Product Analysis
+
+Let's examine our product catalog and identify any special codes.
+
+```{r product-count}
+# Count unique products
+cat("Total unique products (StockCodes):", n_distinct(retail_raw$StockCode), "\n")
+```
+
+```{r special-stock-codes}
+# Identify potential special/administrative stock codes
+# These often include letters or specific patterns
+special_codes <- retail_raw %>%
+  filter(str_detect(StockCode, "^[A-Z]+$") | 
+         StockCode %in% c("POST", "D", "M", "BANK CHARGES", "AMAZONFEE")) %>%
+  count(StockCode, Description) %>%
+  arrange(desc(n))
+
+head(special_codes, 10)
+```
+
+**Special codes identified:** These non-standard stock codes likely represent postage, discounts, manual adjustments, or fees rather than actual products. We'll need to decide how to handle these in our analysis.
+
+---
+
+# Key Findings Summary
+
+Based on our exploration, here are the critical findings:
+
+**Dataset Overview:**
+
+- Total records: [will be filled after running code]
+- Date range: [will be filled after running code]
+- Unique customers: [will be filled after running code]
+- Unique products: [will be filled after running code]
+- Geographic coverage: [will be filled after running code]
+
+**Data Quality Issues Identified:**
+
+1. **Missing CustomerID:** Approximately 25% of records lack customer identifiers, limiting customer-level analysis
+2. **Returns/Cancellations:** Negative quantities and 'C' prefixed invoices indicate returns
+3. **Price Anomalies:** Some records have zero or negative prices
+4. **Special Stock Codes:** Administrative codes (POST, D, M) need separate handling
+
+**Implications for Analysis:**
+
+- We'll need to filter out records without CustomerID for customer behavior analysis
+- Returns should be handled separately or excluded from revenue calculations
+- Special stock codes should be identified and potentially excluded
+- UK dominance suggests we may want UK-specific and international segments
+
+---
+
+# Next Steps
+
+Based on this exploration, our data cleaning process (next notebook) will need to:
+
+1. Handle missing CustomerID values (exclude from customer analysis)
+2. Create flags for returns and cancellations
+3. Filter out zero/negative prices or investigate their meaning
+4. Separate administrative stock codes from actual products
+5. Create derived fields (TotalAmount, transaction flags, date components)
+6. Document all transformation decisions
+
+---
+
+# Session Information
+
+```{r session-info}
+# Document R version and package versions for reproducibility
+sessionInfo()
+```
