@@ -1,0 +1,187 @@
+# Data Dictionary: Online Retail Dataset
+
+## Dataset Overview
+
+- **Source:** UCI Machine Learning Repository
+- **URL:** https://archive.ics.uci.edu/ml/datasets/Online+Retail
+- **Period Covered:** December 1, 2010 to December 9, 2011
+- **Total Records:** 541,909 transactions
+- **Unique Customers:** ~4,372 (excluding missing CustomerIDs)
+- **Unique Products:** ~3,684
+- **Geographic Coverage:** 38 countries
+- **Business Context:** UK-based non-store online retail company specializing in unique all-occasion gifts. Many customers are wholesalers.
+
+---
+
+## Column Definitions
+
+| Column Name | Data Type | Description | Example Values | Constraints/Notes |
+|-------------|-----------|-------------|----------------|-------------------|
+| **InvoiceNo** | String | Unique 6-digit invoice number assigned to each transaction | 536365, 536366 | Cancellations are prefixed with 'C' (e.g., C536379) |
+| **StockCode** | String | Unique 5-6 character product code | 85123A, 71053, POST | Alphanumeric; special codes exist (POST, D, M, etc.) |
+| **Description** | String | Product name or description | WHITE HANGING HEART T-LIGHT HOLDER | ~1,400 missing values; some generic entries |
+| **Quantity** | Integer | Number of units purchased per product per transaction | 6, 24, -1 | Can be negative (returns/cancellations); range varies widely |
+| **InvoiceDate** | DateTime | Timestamp of transaction | 12/1/2010 8:26 | Format: M/D/YYYY H:MM (24-hour time) |
+| **UnitPrice** | Numeric | Price per unit in British Pounds (GBP £) | 2.55, 3.39, 0.85 | Some zero/negative values exist; decimals to 2 places |
+| **CustomerID** | Numeric | Unique 5-digit identifier for each customer | 17850.0, 13047.0 | ~24.9% missing (135,080 records); represents guest checkouts |
+| **Country** | String | Country where the customer resides | United Kingdom, Germany, France | 38 unique countries; UK dominates (~90% of records) |
+
+---
+
+## Data Quality Issues
+
+### Missing Values
+
+| Column | Missing Count | Missing Percentage | Impact |
+|--------|--------------|-------------------|---------|
+| CustomerID | ~135,080 | ~24.9% | Cannot perform customer-level analysis on these records |
+| Description | ~1,454 | ~0.3% | Minor impact; can use StockCode instead |
+| Other columns | 0 | 0% | No missing values |
+
+**CustomerID Missing Pattern:**
+- Missing CustomerIDs likely represent guest checkouts or one-time purchases
+- These records will be excluded from RFM analysis, cohort analysis, CLV prediction, and churn modeling
+- Customer-level analyses will focus on the ~75% of transactions with valid CustomerIDs
+
+### Anomalies and Special Cases
+
+**1. Returns and Cancellations**
+- **Negative Quantities:** ~10,624 records (1.96%) have negative quantities, representing product returns
+- **Cancellation Invoices:** Invoices starting with 'C' indicate cancelled transactions
+- **Handling:** These will be flagged and analyzed separately; may be excluded from revenue calculations
+
+**2. Price Anomalies**
+- **Zero Prices:** Some transactions have UnitPrice = 0
+- **Negative Prices:** Rare cases of negative prices exist
+- **Possible Reasons:** Samples, promotional items, data entry errors, or adjustments
+- **Handling:** Will investigate and potentially exclude from monetary analyses
+
+**3. Duplicate Records**
+- Preliminary analysis shows some duplicate rows
+- Need to investigate if these are legitimate repeat purchases or data quality issues
+
+### Special Stock Codes
+
+The following stock codes represent non-product items:
+
+| Stock Code | Description | Purpose |
+|------------|-------------|---------|
+| POST | Postage | Shipping charges |
+| D | Discount | Discount applied to transaction |
+| M | Manual | Manual adjustments |
+| BANK CHARGES | Bank fees | Banking transaction fees |
+| AMAZONFEE | Amazon marketplace fee | Third-party platform fees |
+| PADS | Pads to match all cushions | Administrative item |
+| DOT | Dotcom postage | E-commerce shipping |
+
+**Handling:** These administrative items will be flagged and may be excluded from product analysis but retained for revenue calculations.
+
+---
+
+## Derived Fields to be Created
+
+During data cleaning and analysis, we will create the following derived fields:
+
+### Transaction-Level Fields
+
+| Field Name | Data Type | Calculation | Purpose |
+|------------|-----------|-------------|---------|
+| **TotalAmount** | Numeric | Quantity × UnitPrice | Calculate transaction value |
+| **IsReturn** | Boolean | Quantity < 0 | Flag returns for separate analysis |
+| **IsCancellation** | Boolean | InvoiceNo starts with 'C' | Flag cancelled transactions |
+| **IsAdminItem** | Boolean | StockCode in special codes list | Exclude from product analysis |
+| **NetQuantity** | Integer | abs(Quantity) | Absolute quantity for certain calculations |
+| **NetRevenue** | Numeric | TotalAmount (excluding returns) | Calculate actual revenue |
+
+### Date-Time Components
+
+| Field Name | Data Type | Extraction | Purpose |
+|------------|-----------|------------|---------|
+| **Year** | Integer | year(InvoiceDate) | Yearly trends |
+| **Month** | Integer | month(InvoiceDate) | Monthly seasonality |
+| **YearMonth** | String | format "YYYY-MM" | Time series analysis |
+| **Day** | Integer | day(InvoiceDate) | Daily patterns |
+| **DayOfWeek** | String | weekday name | Weekday vs weekend patterns |
+| **Hour** | Integer | hour(InvoiceDate) | Hourly transaction patterns |
+| **Quarter** | String | Q1, Q2, Q3, Q4 | Quarterly analysis |
+
+### Customer-Level Fields (for RFM Analysis)
+
+| Field Name | Data Type | Calculation | Purpose |
+|------------|-----------|-------------|---------|
+| **FirstPurchaseDate** | Date | min(InvoiceDate) per CustomerID | Identify customer cohorts |
+| **LastPurchaseDate** | Date | max(InvoiceDate) per CustomerID | Calculate recency |
+| **DaysSinceLastPurchase** | Integer | Current date minus LastPurchaseDate | Recency metric for RFM |
+| **TotalPurchases** | Integer | count(distinct InvoiceNo) per CustomerID | Frequency metric for RFM |
+| **TotalSpent** | Numeric | sum(TotalAmount) per CustomerID | Monetary metric for RFM |
+| **AverageOrderValue** | Numeric | TotalSpent / TotalPurchases | Customer value metric |
+| **CustomerLifetimeDays** | Integer | LastPurchaseDate minus FirstPurchaseDate | Customer tenure |
+
+---
+
+## Business Rules and Assumptions
+
+### Revenue Calculation
+- **Gross Revenue:** Sum of all positive TotalAmount values
+- **Returns:** Sum of all negative TotalAmount values
+- **Net Revenue:** Gross Revenue minus Returns
+- Administrative items (POST, D, etc.) are included in revenue calculations as they represent actual costs/fees
+
+### Customer Definition
+- A customer is uniquely identified by CustomerID
+- Records without CustomerID are considered anonymous/guest transactions
+- Customer analysis focuses only on records with valid CustomerID
+
+### Transaction Definition
+- A transaction is uniquely identified by InvoiceNo
+- A single invoice can contain multiple products (line items)
+- Cancellations (InvoiceNo starting with 'C') are treated as separate transactions
+
+### Geographic Segmentation
+- **Primary Market:** United Kingdom (~90% of transactions)
+- **International Markets:** All other countries grouped or analyzed individually
+- Analysis may segment UK vs Non-UK for comparison
+
+---
+
+## Data Validation Rules
+
+For data cleaning, we will apply these validation rules:
+
+1. **Remove/Flag records where:**
+   - CustomerID is missing (for customer-level analysis only)
+   - Quantity = 0
+   - UnitPrice is negative (investigate first)
+   - Description is missing AND StockCode is not a special code
+
+2. **Keep but flag separately:**
+   - Returns (negative Quantity)
+   - Cancellations (InvoiceNo starts with 'C')
+   - Administrative items (special StockCodes)
+
+3. **Date constraints:**
+   - InvoiceDate must be between December 1, 2010 and December 9, 2011
+   - Records outside this range will be investigated
+
+---
+
+## Update History
+
+| Date | Version | Changes | Updated By |
+|------|---------|---------|------------|
+| 01/17/2026 | 1.0 | Initial data dictionary created | Joao Victor Barbosa Gomes |
+
+---
+
+## Notes for Analysis
+
+- This dataset is ideal for customer segmentation, cohort analysis, and CLV prediction
+- The high percentage of UK transactions suggests focusing primary analysis on UK market
+- Missing CustomerIDs limit customer behavior analysis to ~75% of transactions
+- Returns/cancellations should be analyzed separately to understand customer satisfaction
+- Special stock codes provide insights into operational costs (shipping, fees)
+- Datetime granularity (down to minute) allows for detailed temporal pattern analysis
+
+---
+
+**For questions or clarifications about this data dictionary, please refer to the data exploration notebook: `notebooks/01_data_exploration.Rmd`**
