@@ -1,0 +1,813 @@
+---
+title: "RFM Customer Segmentation Analysis"
+author: "Victor Gomes"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+    theme: flatly
+    highlight: tango
+---
+
+# Executive Summary
+
+This analysis segments customers using RFM (Recency, Frequency, Monetary) methodology to identify high-value customer groups and inform targeted marketing strategies.
+
+**Key Objectives:**
+- Segment customers based on purchasing behavior
+- Identify Champions (best customers) and At-Risk customers
+- Provide actionable recommendations for each segment
+- Quantify revenue opportunity by segment
+
+**Business Impact:**
+*[Will be filled after completing analysis]*
+
+---
+
+# Introduction to RFM Analysis
+
+## What is RFM?
+
+RFM is a customer segmentation technique that analyzes three key behavioral dimensions:
+
+**Recency (R):** How recently did the customer make a purchase?
+- Measured as: Days since last purchase
+- Business logic: Recent customers are more engaged and likely to purchase again
+- Scoring: Lower days = higher score (more recent = better)
+
+**Frequency (F):** How often does the customer purchase?
+- Measured as: Total number of transactions
+- Business logic: Frequent buyers demonstrate loyalty and product satisfaction
+- Scoring: Higher transaction count = higher score
+
+**Monetary (M):** How much does the customer spend?
+- Measured as: Total revenue generated
+- Business logic: High spenders are most valuable to the business
+- Scoring: Higher spend = higher score
+
+## Why RFM Matters for E-Commerce
+
+- **Targeted Marketing:** Different segments require different marketing approaches
+- **Budget Optimization:** Allocate resources to highest-value customers
+- **Churn Prevention:** Identify at-risk customers before they leave
+- **Revenue Growth:** Focus on moving customers to higher-value segments
+- **Customer Lifetime Value:** Predict future value based on current behavior
+
+## Our Methodology
+
+**Scoring Approach:** Quintile-based (1-5 scale)
+- Divide customers into 5 equal groups for each metric
+- Assign scores 1 (lowest) to 5 (highest)
+- Combine into 3-digit RFM code (e.g., "543")
+
+**Segmentation:** 11 distinct customer segments
+- Based on RFM score patterns
+- Each segment has specific characteristics and recommended actions
+
+---
+
+# Setup and Configuration
+
+```{r setup, include=FALSE}
+# Configure code chunk defaults
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 12,
+  fig.height = 8,
+  fig.align = 'center'
+)
+```
+
+```{r load-libraries}
+# Data manipulation and analysis
+library(tidyverse)      # Core data manipulation
+library(lubridate)      # Date handling
+library(here)           # File paths
+
+# Visualization
+library(scales)         # Number formatting
+library(viridis)        # Color palettes
+library(ggthemes)       # Additional themes
+
+# Tables and reporting
+library(knitr)          # Table formatting
+library(kableExtra)     # Enhanced tables
+library(DT)             # Interactive tables
+```
+
+**Packages loaded:** All necessary tools for RFM analysis and visualization.
+
+---
+
+# Data Loading and Validation
+
+## Load Customer Summary Data
+
+```{r load-data}
+# Load the pre-calculated customer summary from data cleaning
+customer_summary <- read_csv(here("data", "processed", "customer_summary.csv"))
+
+# Display confirmation
+cat("Customer summary data loaded successfully!\n")
+cat("Total customers:", nrow(customer_summary), "\n")
+cat("Columns:", ncol(customer_summary), "\n")
+```
+
+**Data loaded:** Customer summary with pre-calculated metrics from our data cleaning process.
+
+## Initial Data Inspection
+
+```{r inspect-data}
+# Display structure
+glimpse(customer_summary)
+```
+
+**Structure check:** Verify all expected columns are present and have correct data types.
+
+```{r preview-data}
+# Preview first 10 customers
+head(customer_summary, 10) %>%
+  kable(caption = "Sample Customer Records") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), font_size = 11) %>%
+  scroll_box(width = "100%")
+```
+
+**Data preview:** Sample of customer records showing all calculated metrics.
+
+## Data Validation
+
+```{r validate-data}
+# Check for missing values in critical RFM columns
+cat("Missing Value Check:\n")
+cat("DaysSinceLastPurchase:", sum(is.na(customer_summary$DaysSinceLastPurchase)), "\n")
+cat("TotalTransactions:", sum(is.na(customer_summary$TotalTransactions)), "\n")
+cat("TotalSpent:", sum(is.na(customer_summary$TotalSpent)), "\n\n")
+
+# Check for invalid values (negative, zero, etc.)
+cat("Data Range Validation:\n")
+cat("Recency (days) range:", min(customer_summary$DaysSinceLastPurchase), "to", 
+    max(customer_summary$DaysSinceLastPurchase), "\n")
+cat("Frequency range:", min(customer_summary$TotalTransactions), "to", 
+    max(customer_summary$TotalTransactions), "\n")
+cat("Monetary range: £", sprintf("%.2f", min(customer_summary$TotalSpent)), "to £", 
+    sprintf("%.2f", max(customer_summary$TotalSpent)), "\n\n")
+
+# Check for outliers using IQR method
+check_outliers <- function(x, metric_name) {
+  Q1 <- quantile(x, 0.25)
+  Q3 <- quantile(x, 0.75)
+  IQR <- Q3 - Q1
+  outliers <- sum(x < (Q1 - 1.5*IQR) | x > (Q3 + 1.5*IQR))
+  cat(metric_name, "outliers:", outliers, 
+      sprintf("(%.2f%%)", outliers/length(x)*100), "\n")
+}
+
+cat("Outlier Detection:\n")
+check_outliers(customer_summary$DaysSinceLastPurchase, "Recency")
+check_outliers(customer_summary$TotalTransactions, "Frequency")
+check_outliers(customer_summary$TotalSpent, "Monetary")
+```
+
+**Validation complete:** Data quality checks ensure RFM metrics are valid and ready for analysis.
+
+## Summary Statistics
+
+```{r summary-stats}
+# Calculate summary statistics for RFM metrics
+summary_table <- customer_summary %>%
+  summarize(
+    Metric = c("Recency (days)", "Frequency (transactions)", "Monetary (£)"),
+    Mean = c(mean(DaysSinceLastPurchase), mean(TotalTransactions), mean(TotalSpent)),
+    Median = c(median(DaysSinceLastPurchase), median(TotalTransactions), median(TotalSpent)),
+    Min = c(min(DaysSinceLastPurchase), min(TotalTransactions), min(TotalSpent)),
+    Max = c(max(DaysSinceLastPurchase), max(TotalTransactions), max(TotalSpent)),
+    SD = c(sd(DaysSinceLastPurchase), sd(TotalTransactions), sd(TotalSpent))
+  )
+
+summary_table %>%
+  mutate(across(where(is.numeric), ~round(., 2))) %>%
+  kable(caption = "RFM Metrics Summary Statistics") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+**Summary statistics:** Overview of RFM metric distributions before scoring.
+
+---
+
+# RFM Score Calculation
+
+Now we'll calculate RFM scores using the quintile method, dividing customers into 5 equal groups for each metric.
+
+## Recency Score Calculation
+
+```{r recency-score}
+# Calculate Recency score (REVERSE: lower days = higher score)
+# We use desc() because recent customers (low days) should get high scores
+customer_rfm <- customer_summary %>%
+  mutate(
+    # Assign quintile scores 1-5 (5 = most recent)
+    R_Score = ntile(desc(DaysSinceLastPurchase), 5)
+  )
+
+# Verify the scoring logic
+recency_check <- customer_rfm %>%
+  group_by(R_Score) %>%
+  summarize(
+    Customers = n(),
+    Min_Days = min(DaysSinceLastPurchase),
+    Max_Days = max(DaysSinceLastPurchase),
+    Avg_Days = round(mean(DaysSinceLastPurchase), 1)
+  ) %>%
+  arrange(desc(R_Score))  # Show best (5) to worst (1)
+
+recency_check %>%
+  kable(caption = "Recency Score Distribution", 
+        col.names = c("R Score", "Customers", "Min Days", "Max Days", "Avg Days")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+**Recency scoring complete:** Customers divided into 5 groups. Score 5 = purchased most recently (best), Score 1 = purchased long ago (worst).
+
+**Key observation:** Notice how R_Score 5 has the lowest "Avg Days" (most recent customers).
+
+## Frequency Score Calculation
+
+```{r frequency-score}
+# Calculate Frequency score (DIRECT: higher transactions = higher score)
+customer_rfm <- customer_rfm %>%
+  mutate(
+    # Assign quintile scores 1-5 (5 = most frequent)
+    F_Score = ntile(TotalTransactions, 5)
+  )
+
+# Verify the scoring logic
+frequency_check <- customer_rfm %>%
+  group_by(F_Score) %>%
+  summarize(
+    Customers = n(),
+    Min_Transactions = min(TotalTransactions),
+    Max_Transactions = max(TotalTransactions),
+    Avg_Transactions = round(mean(TotalTransactions), 1)
+  ) %>%
+  arrange(desc(F_Score))  # Show best (5) to worst (1)
+
+frequency_check %>%
+  kable(caption = "Frequency Score Distribution",
+        col.names = c("F Score", "Customers", "Min Txns", "Max Txns", "Avg Txns")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+**Frequency scoring complete:** Score 5 = highest transaction count (most loyal), Score 1 = fewest transactions.
+
+**Key observation:** F_Score 5 customers have significantly more transactions than lower scores.
+
+## Monetary Score Calculation
+
+```{r monetary-score}
+# Calculate Monetary score (DIRECT: higher spend = higher score)
+customer_rfm <- customer_rfm %>%
+  mutate(
+    # Assign quintile scores 1-5 (5 = highest spend)
+    M_Score = ntile(TotalSpent, 5)
+  )
+
+# Verify the scoring logic
+monetary_check <- customer_rfm %>%
+  group_by(M_Score) %>%
+  summarize(
+    Customers = n(),
+    Min_Spend = min(TotalSpent),
+    Max_Spend = max(TotalSpent),
+    Avg_Spend = mean(TotalSpent),
+    Total_Revenue = sum(TotalSpent)
+  ) %>%
+  arrange(desc(M_Score))  # Show best (5) to worst (1)
+
+monetary_check %>%
+  mutate(
+    Min_Spend = dollar(Min_Spend, prefix = "£"),
+    Max_Spend = dollar(Max_Spend, prefix = "£"),
+    Avg_Spend = dollar(Avg_Spend, prefix = "£"),
+    Total_Revenue = dollar(Total_Revenue, prefix = "£")
+  ) %>%
+  kable(caption = "Monetary Score Distribution",
+        col.names = c("M Score", "Customers", "Min Spend", "Max Spend", "Avg Spend", "Total Revenue")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+**Monetary scoring complete:** Score 5 = highest spenders (most valuable), Score 1 = lowest spenders.
+
+**Critical insight:** Notice the revenue concentration. M_Score 5 customers likely contribute disproportionate revenue.
+
+## Combined RFM Scores
+
+```{r combined-scores}
+# Create combined RFM score and total score
+customer_rfm <- customer_rfm %>%
+  mutate(
+    # Concatenate scores into 3-digit code (e.g., "543")
+    RFM_Score = paste0(R_Score, F_Score, M_Score),
+    
+    # Calculate total score (sum of individual scores, range 3-15)
+    RFM_Total = R_Score + F_Score + M_Score
+  )
+
+# Display score distribution summary
+cat("RFM Score Creation Complete:\n")
+cat("Total unique RFM combinations:", n_distinct(customer_rfm$RFM_Score), "\n")
+cat("RFM Total score range:", min(customer_rfm$RFM_Total), "to", max(customer_rfm$RFM_Total), "\n\n")
+
+# Show most common RFM scores
+cat("Top 10 Most Common RFM Scores:\n")
+customer_rfm %>%
+  count(RFM_Score, sort = TRUE) %>%
+  head(10) %>%
+  mutate(Percentage = round(n / nrow(customer_rfm) * 100, 2)) %>%
+  kable(col.names = c("RFM Score", "Customers", "% of Total")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+**Combined RFM scores created:** Each customer now has a unique 3-digit RFM code representing their behavior profile.
+
+## RFM Score Distribution Analysis
+
+```{r score-distribution}
+# Analyze the distribution of total RFM scores
+rfm_total_dist <- customer_rfm %>%
+  count(RFM_Total) %>%
+  mutate(
+    Percentage = round(n / sum(n) * 100, 2),
+    Cumulative_Pct = round(cumsum(n) / sum(n) * 100, 2)
+  )
+
+rfm_total_dist %>%
+  kable(caption = "Distribution of Total RFM Scores",
+        col.names = c("Total Score", "Customers", "% of Total", "Cumulative %")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+**Score distribution:** Shows how customers are distributed across the RFM score spectrum.
+
+```{r preview-scored-customers}
+# Preview customers with their RFM scores
+customer_rfm %>%
+  select(CustomerID, DaysSinceLastPurchase, TotalTransactions, TotalSpent,
+         R_Score, F_Score, M_Score, RFM_Score, RFM_Total) %>%
+  arrange(desc(RFM_Total)) %>%
+  head(20) %>%
+  mutate(TotalSpent = dollar(TotalSpent, prefix = "£")) %>%
+  kable(caption = "Top 20 Customers by RFM Total Score") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), font_size = 11) %>%
+  scroll_box(width = "100%")
+```
+
+**Best customers preview:** Top-scoring customers based on combined RFM metrics.
+
+---
+
+# Customer Segmentation
+
+Now we'll assign customers to meaningful business segments based on their RFM score patterns.
+
+## Segment Definitions
+
+We'll create 11 distinct customer segments based on proven RFM segmentation methodology:
+
+```{r define-segments}
+# Define segment assignment based on RFM score patterns
+customer_rfm <- customer_rfm %>%
+  mutate(
+    Segment = case_when(
+      # Champions: Best customers (bought recently, buy often, spend most)
+      RFM_Score %in% c("555", "554", "544", "545", "454", "455", "445") ~ "Champions",
+      
+      # Loyal Customers: Regular, reliable customers
+      RFM_Score %in% c("543", "444", "435", "355", "354", "345", "344", "335") ~ "Loyal Customers",
+      
+      # Potential Loyalists: Recent customers with average frequency/spend
+      RFM_Score %in% c("553", "551", "552", "541", "542", "533", "532", "531", 
+                       "452", "451", "442", "441", "431", "453", "433", "432", 
+                       "423", "353", "352", "351", "342", "341", "333", "323") ~ "Potential Loyalists",
+      
+      # New Customers: Recent first-time buyers
+      RFM_Score %in% c("512", "511", "422", "421", "412", "411", "311") ~ "New Customers",
+      
+      # Promising: Recent but low frequency/spend
+      RFM_Score %in% c("525", "524", "523", "522", "521", "515", "514", "513",
+                       "425", "424", "413", "414", "415", "315", "314", "313") ~ "Promising",
+      
+      # Need Attention: Good customers who haven't purchased recently
+      RFM_Score %in% c("535", "534", "443", "434", "343", "334", "325", "324") ~ "Need Attention",
+      
+      # About to Sleep: Below average recency, frequency, monetary
+      RFM_Score %in% c("331", "321", "312", "221", "213", "231", "241", "251") ~ "About to Sleep",
+      
+      # At Risk: Spent big, purchased often, but long time ago
+      RFM_Score %in% c("255", "254", "245", "244", "253", "252", "243", "242",
+                       "235", "234", "225", "224", "153", "152", "145", "143",
+                       "142", "135", "134", "133", "125", "124") ~ "At Risk",
+      
+      # Can't Lose Them: Made big purchases, haven't returned
+      RFM_Score %in% c("155", "154", "144", "214", "215", "115", "114", "113") ~ "Can't Lose Them",
+      
+      # Hibernating: Last purchase long ago, low spend/frequency
+      RFM_Score %in% c("332", "322", "233", "232", "223", "222", "132", "123", "122", "212", "211") ~ "Hibernating",
+      
+      # Lost: Lowest recency, frequency, monetary
+      RFM_Score %in% c("111", "112", "121", "131", "141", "151") ~ "Lost",
+      
+      # Catch-all (should be minimal)
+      TRUE ~ "Other"
+    )
+  )
+
+# Verify segmentation coverage
+cat("Segmentation Complete!\n")
+cat("Customers assigned to 'Other':", sum(customer_rfm$Segment == "Other"), "\n")
+cat("This should be 0 or very close to 0.\n")
+```
+
+**Segmentation complete:** All customers assigned to actionable business segments.
+
+**Important:** If "Other" count is high, we need to review segment definitions.
+
+## Segment Distribution Overview
+
+```{r segment-distribution}
+# Calculate segment sizes and percentages
+segment_dist <- customer_rfm %>%
+  count(Segment, name = "Customers") %>%
+  mutate(
+    Percentage = round(Customers / sum(Customers) * 100, 2)
+  ) %>%
+  arrange(desc(Customers))
+
+segment_dist %>%
+  kable(caption = "Customer Distribution by Segment",
+        col.names = c("Segment", "Customers", "% of Total")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+**Segment sizes:** Distribution of customers across all segments.
+
+**Business question:** Which segments are largest? Does this match expected e-commerce patterns?
+
+---
+
+# Initial Segment Analysis
+
+Now we'll analyze the characteristics and value of each segment.
+
+## Comprehensive Segment Summary
+
+```{r segment-summary}
+# Calculate detailed metrics for each segment
+segment_summary <- customer_rfm %>%
+  group_by(Segment) %>%
+  summarize(
+    # Customer counts
+    Customers = n(),
+    Pct_Customers = round(n() / nrow(customer_rfm) * 100, 2),
+    
+    # RFM averages
+    Avg_Recency_Days = round(mean(DaysSinceLastPurchase), 1),
+    Avg_Frequency = round(mean(TotalTransactions), 1),
+    Avg_Monetary = round(mean(TotalSpent), 2),
+    
+    # Revenue metrics
+    Total_Revenue = sum(TotalSpent),
+    Pct_Revenue = round(sum(TotalSpent) / sum(customer_rfm$TotalSpent) * 100, 2),
+    
+    # Additional metrics
+    Avg_Order_Value = round(mean(AverageOrderValue), 2),
+    Avg_Customer_Lifetime_Days = round(mean(CustomerLifetimeDays), 0)
+  ) %>%
+  arrange(desc(Total_Revenue))  # Sort by revenue contribution
+
+# Display formatted table
+segment_summary %>%
+  mutate(
+    Avg_Monetary = dollar(Avg_Monetary, prefix = "£"),
+    Total_Revenue = dollar(Total_Revenue, prefix = "£"),
+    Avg_Order_Value = dollar(Avg_Order_Value, prefix = "£")
+  ) %>%
+  kable(caption = "Comprehensive Segment Analysis") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), font_size = 10) %>%
+  scroll_box(width = "100%")
+```
+
+**Key findings from segment analysis:**
+
+Interpretation from the table above:
+- Which segment drives the most revenue? Champions drive the most revenue
+- What's the revenue concentration? (Do top 2-3 segments drive majority of revenue?) The revenue is concentrated between Champions and Loyal Customers
+- How does customer count relate to revenue contribution? We see a general trend of higher number of customers being correlated with higher revenue
+- Which segments show high recency (engaged) vs low recency (at-risk)? Champions show the highest high recency and Lost show the lowest recency
+
+## Revenue Concentration Analysis
+
+```{r revenue-concentration}
+# Calculate cumulative revenue by segment (Pareto analysis)
+revenue_pareto <- segment_summary %>%
+  arrange(desc(Total_Revenue)) %>%
+  mutate(
+    Cumulative_Revenue_Pct = round(cumsum(Total_Revenue) / sum(Total_Revenue) * 100, 2),
+    Cumulative_Customers_Pct = round(cumsum(Customers) / sum(Customers) * 100, 2)
+  ) %>%
+  select(Segment, Customers, Pct_Customers, Total_Revenue, Pct_Revenue, 
+         Cumulative_Customers_Pct, Cumulative_Revenue_Pct)
+
+revenue_pareto %>%
+  mutate(Total_Revenue = dollar(Total_Revenue, prefix = "£")) %>%
+  kable(caption = "Revenue Concentration (Pareto Analysis)") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), font_size = 10) %>%
+  scroll_box(width = "100%")
+```
+
+
+## Segment Characteristics Matrix
+
+```{r segment-characteristics}
+# Create a matrix showing relative segment characteristics
+segment_matrix <- customer_rfm %>%
+  group_by(Segment) %>%
+  summarize(
+    Avg_R_Score = round(mean(R_Score), 2),
+    Avg_F_Score = round(mean(F_Score), 2),
+    Avg_M_Score = round(mean(M_Score), 2),
+    Avg_Total_Score = round(mean(RFM_Total), 2)
+  ) %>%
+  arrange(desc(Avg_Total_Score))
+
+segment_matrix %>%
+  kable(caption = "Average RFM Scores by Segment",
+        col.names = c("Segment", "Avg R", "Avg F", "Avg M", "Avg Total")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+**Segment profiles:** Average RFM scores show the behavioral profile of each segment.
+
+## Top Customers by Segment
+
+```{r top-customers-by-segment}
+# Show top 3 customers from key segments
+key_segments <- c("Champions", "Loyal Customers", "At Risk", "Lost")
+
+for(seg in key_segments) {
+  cat("\n### Top 3", seg, ":\n")
+  
+  customer_rfm %>%
+    filter(Segment == seg) %>%
+    arrange(desc(TotalSpent)) %>%
+    head(3) %>%
+    select(CustomerID, RFM_Score, DaysSinceLastPurchase, TotalTransactions, 
+           TotalSpent, PrimaryCountry) %>%
+    mutate(TotalSpent = dollar(TotalSpent, prefix = "£")) %>%
+    kable() %>%
+    kable_styling(bootstrap_options = c("striped", "hover"), font_size = 10) %>%
+    print()
+  
+  cat("\n")
+}
+```
+
+**Sample customers:** Examples from each key segment showing their characteristics.
+
+---
+
+# Segment Comparison
+
+Let's compare key segments side-by-side to understand differences.
+
+## Champions vs Lost Customers
+
+```{r champions-vs-lost}
+# Direct comparison of best vs worst segments
+comparison <- customer_rfm %>%
+  filter(Segment %in% c("Champions", "Lost")) %>%
+  group_by(Segment) %>%
+  summarize(
+    Customers = n(),
+    Avg_Recency = round(mean(DaysSinceLastPurchase), 1),
+    Avg_Frequency = round(mean(TotalTransactions), 1),
+    Avg_Monetary = round(mean(TotalSpent), 2),
+    Total_Revenue = sum(TotalSpent),
+    Avg_Lifetime_Days = round(mean(CustomerLifetimeDays), 0)
+  )
+
+comparison %>%
+  mutate(
+    Avg_Monetary = dollar(Avg_Monetary, prefix = "£"),
+    Total_Revenue = dollar(Total_Revenue, prefix = "£")
+  ) %>%
+  kable(caption = "Champions vs Lost Customers Comparison") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+**Stark contrast:** This comparison shows the dramatic difference between best and worst customers.
+
+## At-Risk vs Loyal Customers
+
+```{r at-risk-vs-loyal}
+# Compare at-risk customers with loyal ones
+at_risk_comparison <- customer_rfm %>%
+  filter(Segment %in% c("Loyal Customers", "At Risk")) %>%
+  group_by(Segment) %>%
+  summarize(
+    Customers = n(),
+    Avg_Recency = round(mean(DaysSinceLastPurchase), 1),
+    Avg_Frequency = round(mean(TotalTransactions), 1),
+    Avg_Monetary = round(mean(TotalSpent), 2),
+    Total_Revenue_At_Stake = sum(TotalSpent)
+  )
+
+at_risk_comparison %>%
+  mutate(
+    Avg_Monetary = dollar(Avg_Monetary, prefix = "£"),
+    Total_Revenue_At_Stake = dollar(Total_Revenue_At_Stake, prefix = "£")
+  ) %>%
+  kable(caption = "At Risk vs Loyal Customers") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+**Risk assessment:** At-Risk customers were once valuable. This shows what's at stake if we lose them.
+
+---
+
+# Key Findings Summary
+
+Based on Day 1 analysis, here are our initial findings:
+
+, rep("=", 60), "\n", sep = "")
+
+top_3_segments <- segment_summary %>%
+  arrange(desc(Customers)) %>%
+  head(3)
+
+cat("\nTop 3 Segments by Customer Count:\n")
+for(i in 1:3) {
+  cat(sprintf("%d. %s: %d customers (%.1f%%)\n", 
+              i, top_3_segments$Segment[i], top_3_segments$Customers[i], 
+              top_3_segments$Pct_Customers[i]))
+}
+
+cat("\n", rep("=", 60), "\n\n", sep = "")
+```
+
+## Revenue Concentration Insights
+
+```{r findings-revenue}
+cat("REVENUE CONCENTRATION:\n")
+cat(rep("=", 60), "\n", sep = "")
+
+top_revenue_segments <- segment_summary %>%
+  arrange(desc(Total_Revenue)) %>%
+  head(3)
+
+cat("\nTop 3 Segments by Revenue Contribution:\n")
+for(i in 1:3) {
+  cat(sprintf("%d. %s: %s (%.1f%% of total revenue)\n", 
+              i, top_revenue_segments$Segment[i], 
+              dollar(top_revenue_segments$Total_Revenue[i], prefix = "£"),
+              top_revenue_segments$Pct_Revenue[i]))
+}
+
+# Calculate concentration ratio
+top_2_pct <- sum(top_revenue_segments$Pct_Revenue[1:2])
+cat(sprintf("\nTop 2 segments drive %.1f%% of revenue\n", top_2_pct))
+
+cat("\n", rep("=", 60), "\n\n", sep = "")
+```
+
+## Risk Assessment
+
+```{r findings-risk}
+cat("RISK ASSESSMENT:\n")
+cat(rep("=", 60), "\n", sep = "")
+
+# At-risk and churned customers
+at_risk_total <- segment_summary %>%
+  filter(Segment %in% c("At Risk", "Can't Lose Them")) %>%
+  summarize(
+    Total_Customers = sum(Customers),
+    Total_Revenue = sum(Total_Revenue),
+    Pct_Revenue = sum(Pct_Revenue)
+  )
+
+churned_total <- segment_summary %>%
+  filter(Segment %in% c("Hibernating", "Lost")) %>%
+  summarize(
+    Total_Customers = sum(Customers),
+    Pct_Customers = sum(Pct_Customers)
+  )
+
+cat("\nHigh-Value Customers at Risk:\n")
+cat(sprintf("  Customers: %d\n", at_risk_total$Total_Customers))
+cat(sprintf("  Revenue at stake: %s (%.1f%% of total)\n", 
+            dollar(at_risk_total$Total_Revenue, prefix = "£"),
+            at_risk_total$Pct_Revenue))
+
+cat("\nChurned/Hibernating Customers:\n")
+cat(sprintf("  Customers: %d (%.1f%% of customer base)\n", 
+            churned_total$Total_Customers,
+            churned_total$Pct_Customers))
+
+cat("\n", rep("=", 60), "\n\n", sep = "")
+```
+
+## Opportunity Assessment
+
+```{r findings-opportunity}
+cat("GROWTH OPPORTUNITIES:\n")
+cat(rep("=", 60), "\n", sep = "")
+
+# Growth segments
+growth_segments <- segment_summary %>%
+  filter(Segment %in% c("Potential Loyalists", "Promising", "New Customers"))
+
+cat("\nCustomers with Growth Potential:\n")
+for(i in 1:nrow(growth_segments)) {
+  cat(sprintf("  %s: %d customers (%.1f%% of base)\n",
+              growth_segments$Segment[i],
+              growth_segments$Customers[i],
+              growth_segments$Pct_Customers[i]))
+}
+
+cat(sprintf("\nTotal growth opportunity: %d customers (%.1f%% of base)\n",
+            sum(growth_segments$Customers),
+            sum(growth_segments$Pct_Customers)))
+
+cat("\n", rep("=", 60), "\n\n", sep = "")
+```
+
+**Initial findings documented:** These insights will guide Day 2 visualizations and Day 3 recommendations.
+
+---
+
+# Data Export for Visualization
+
+Save the RFM-scored dataset for Day 2 visualization work.
+
+```{r export-rfm-data}
+# Export the complete RFM dataset
+write_csv(customer_rfm, here("data", "processed", "customer_rfm_scored.csv"))
+cat("RFM-scored data exported to: data/processed/customer_rfm_scored.csv\n")
+
+# Export segment summary
+write_csv(segment_summary, here("data", "processed", "rfm_segment_summary.csv"))
+cat("Segment summary exported to: data/processed/rfm_segment_summary.csv\n")
+```
+
+**Export complete:** Data ready for Day 2 visualization work.
+
+---
+
+# Next Steps
+
+**Day 1 Complete! ✓**
+
+We've successfully:
+- ✅ Calculated RFM scores for all customers
+- ✅ Assigned customers to 11 business segments
+- ✅ Analyzed segment characteristics and revenue distribution
+- ✅ Identified key risks and opportunities
+
+**Day 2 Preview:**
+
+Tomorrow we'll create compelling visualizations including:
+1. Customer distribution by segment (bar chart)
+2. Revenue contribution comparison (stacked bar)
+3. RFM 3D scatter plot (interactive)
+4. Score heatmap
+5. Segment radar charts
+6. Pareto analysis
+7. Customer lifecycle flow
+
+**Day 3 Preview:**
+
+Final day will focus on:
+- Business recommendations for each segment
+- Marketing action plans
+- Budget allocation strategy
+- Expected ROI calculations
+- Segment customer list exports
+
+---
+
+# Session Information
+
+```{r session-info}
+# Document R version and packages for reproducibility
+sessionInfo()
+```
+
+---
+
+**Day 1 Analysis Complete!**
+
+*Next: Day 2 - Visualization & Deep Dive Analysis*
