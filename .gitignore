@@ -47,3 +47,6 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Processed data files (too large for GitHub)
+data/processed/*.csv
