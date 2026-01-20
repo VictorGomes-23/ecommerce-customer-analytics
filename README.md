@@ -100,17 +100,25 @@ A UK-based online retailer specializing in unique gifts needs to:
 
 ---
 
-### 3. Customer Lifetime Value (CLV) Prediction
-**What:** Predict the total revenue a customer will generate over their relationship with the business.
+### 3. Customer Lifetime Value (CLV) Prediction ✅
 
-**Business Value:** Inform customer acquisition cost decisions and prioritize retention efforts.
+**What:** Predicted 12-month future value for all customers using behavioral modeling.
 
-**Key Findings:** *[Will be updated after Week 3 analysis]*
-- CLV distribution across segments
-- Predictive model performance
-- High-value customer characteristics
+**Key Findings:**
+- **Predicted Revenue:** £[X] total 12-month forecast
+- **Average CLV:** £[X] per customer (guides acquisition spend)
+- **Max CAC:** £[X] (30% margin × 50% payback ratio)
+- **Platinum Tier:** [X] customers ([X]%) drive [X]% of total value
+- **Rising Stars:** [X] customers with high growth potential
+- **Fading Stars:** [X] high-value customers at risk
 
-📊 [View CLV Analysis Notebook →](notebooks/05_clv_analysis.Rmd) *(Coming soon)*
+**Business Impact:**
+- Established maximum customer acquisition cost
+- Identified [X] rising stars for acceleration programs
+- Quantified [X] fading stars needing urgent intervention
+- Created 5-tier CLV segmentation for targeted strategies
+
+📊 [View CLV Prediction Notebook →](notebooks/05_clv_prediction.Rmd)
 
 ---
 
