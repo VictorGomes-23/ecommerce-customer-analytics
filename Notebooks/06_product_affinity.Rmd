@@ -1,0 +1,662 @@
+---
+title: "Product Affinity Analysis (Market Basket)"
+author: "Victor Gomes"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+    theme: flatly
+    highlight: tango
+---
+
+# Executive Summary
+
+This analysis identifies products frequently purchased together to optimize cross-sell strategies, bundle pricing, and product recommendations.
+
+**Objectives:**
+- Discover product associations and purchase patterns
+- Identify cross-sell and upsell opportunities
+- Recommend product bundles
+- Optimize product placement and marketing
+- Quantify revenue opportunities from recommendations
+
+---
+
+# Introduction to Market Basket Analysis
+
+## What is Market Basket Analysis?
+
+**Market Basket Analysis:** Technique to discover relationships between products by analyzing which items are frequently purchased together.
+
+**Core Metrics:**
+
+**Support:** How often items appear together
+```
+Support(A,B) = Transactions containing both A and B / Total transactions
+```
+
+**Confidence:** Given A was purchased, probability B is also purchased
+```
+Confidence(A→B) = Transactions with both A and B / Transactions with A
+```
+
+**Lift:** How much more likely B is purchased when A is purchased
+```
+Lift(A→B) = Confidence(A→B) / Support(B)
+```
+- Lift > 1: Positive association (A increases likelihood of B)
+- Lift = 1: No association (independent)
+- Lift < 1: Negative association (A decreases likelihood of B)
+
+## Business Applications
+
+- **Cross-sell recommendations:** "Customers who bought X also bought Y"
+- **Product bundling:** Create packages of complementary items
+- **Store layout:** Place associated products near each other
+- **Promotional strategies:** Bundle discount offers
+- **Inventory management:** Stock complementary products together
+
+---
+
+# Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.width = 12, fig.height = 8, fig.align = 'center')
+```
+
+```{r libraries}
+library(tidyverse)
+library(lubridate)
+library(here)
+library(scales)
+library(knitr)
+library(kableExtra)
+library(viridis)
+library(arules)      # Association rules mining
+library(arulesViz)   # Visualization of rules
+library(igraph)      # Network graphs
+library(ggraph)      # Graph visualization
+```
+
+---
+
+# Data Loading
+
+```{r load-data}
+# Load transaction data
+transactions <- read_csv(here("data", "processed", "retail_customers_only.csv"))
+
+cat("Data loaded:\n")
+cat("  Transactions:", nrow(transactions), "\n")
+cat("  Unique customers:", n_distinct(transactions$CustomerID), "\n")
+cat("  Unique products:", n_distinct(transactions$StockCode), "\n")
+cat("  Unique invoices:", n_distinct(transactions$InvoiceNo), "\n")
+```
+
+---
+
+# Data Preparation for Market Basket
+
+```{r data-prep}
+# Filter to valid sales only (exclude returns, admin items)
+basket_data <- transactions %>%
+  filter(
+    !IsReturn,
+    Quantity > 0,
+    UnitPrice > 0,
+    !is.na(Description),
+    Description != ""
+  ) %>%
+  # Clean product descriptions
+  mutate(
+    Product = str_trim(str_to_upper(Description)),
+    Product = str_replace_all(Product, "[^A-Z0-9 ]", "")  # Remove special chars
+  ) %>%
+  # Remove admin items
+  filter(!StockCode %in% c("POST", "D", "M", "BANK CHARGES", "AMAZONFEE", "DOT", "PADS", "C2", "CRUK"))
+
+cat("\nBasket Data Summary:\n")
+cat("  Valid transactions:", nrow(basket_data), "\n")
+cat("  Unique products:", n_distinct(basket_data$Product), "\n")
+cat("  Unique baskets:", n_distinct(basket_data$InvoiceNo), "\n")
+cat("  Average items per basket:", round(nrow(basket_data) / n_distinct(basket_data$InvoiceNo), 2), "\n")
+```
+
+---
+
+# Product Popularity Analysis
+
+Before finding associations, understand which products are most popular.
+
+```{r product-popularity}
+# Calculate product metrics
+product_stats <- basket_data %>%
+  group_by(StockCode, Product) %>%
+  summarize(
+    Times_Purchased = n(),
+    Unique_Customers = n_distinct(CustomerID),
+    Unique_Baskets = n_distinct(InvoiceNo),
+    Total_Quantity = sum(Quantity),
+    Total_Revenue = sum(TotalAmount),
+    Avg_Price = mean(UnitPrice),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(Unique_Baskets))
+
+# Top 20 products
+cat("\nTop 20 Most Popular Products:\n\n")
+product_stats %>%
+  head(20) %>%
+  mutate(
+    Total_Revenue = dollar(Total_Revenue, prefix = "£"),
+    Avg_Price = dollar(Avg_Price, prefix = "£")
+  ) %>%
+  select(Product, Unique_Baskets, Unique_Customers, Total_Revenue) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), font_size = 10) %>%
+  scroll_box(width = "100%", height = "500px")
+```
+
+```{r popularity-viz, fig.width=12, fig.height=8}
+# Visualize top products
+product_stats %>%
+  head(25) %>%
+  mutate(Product = str_trunc(Product, 40)) %>%
+  ggplot(aes(x = Unique_Baskets, y = reorder(Product, Unique_Baskets))) +
+  geom_col(fill = "#1976D2", alpha = 0.8) +
+  geom_text(aes(label = comma(Unique_Baskets)), hjust = -0.1, size = 3) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.15))) +
+  labs(
+    title = "Top 25 Most Frequently Purchased Products",
+    subtitle = "By number of baskets (transactions) containing the product",
+    x = "Number of Baskets",
+    y = NULL
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    panel.grid.major.y = element_blank()
+  )
+```
+
+---
+
+# Basket Size Distribution
+
+```{r basket-size}
+# Analyze basket sizes
+basket_sizes <- basket_data %>%
+  group_by(InvoiceNo) %>%
+  summarize(
+    Basket_Size = n(),
+    Basket_Value = sum(TotalAmount),
+    .groups = "drop"
+  )
+
+cat("\nBasket Size Statistics:\n")
+cat("  Average basket size:", round(mean(basket_sizes$Basket_Size), 2), "items\n")
+cat("  Median basket size:", median(basket_sizes$Basket_Size), "items\n")
+cat("  Average basket value:", dollar(mean(basket_sizes$Basket_Value), prefix = "£"), "\n")
+cat("  Median basket value:", dollar(median(basket_sizes$Basket_Value), prefix = "£"), "\n")
+```
+
+```{r basket-size-viz, fig.width=12, fig.height=6}
+# Visualize basket size distribution
+ggplot(basket_sizes, aes(x = Basket_Size)) +
+  geom_histogram(binwidth = 1, fill = "#1976D2", alpha = 0.7) +
+  geom_vline(aes(xintercept = mean(Basket_Size)), color = "#D32F2F", 
+             linetype = "dashed", linewidth = 1) +
+  scale_x_continuous(limits = c(0, 50), breaks = seq(0, 50, 5)) +
+  annotate("text", x = mean(basket_sizes$Basket_Size) + 3, y = Inf, 
+           label = paste("Mean:", round(mean(basket_sizes$Basket_Size), 1)), 
+           vjust = 2, color = "#D32F2F", fontface = "bold") +
+  labs(
+    title = "Distribution of Basket Sizes",
+    subtitle = "Number of items per transaction",
+    x = "Items per Basket",
+    y = "Number of Transactions"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold", size = 14))
+```
+
+---
+
+# Product Co-Occurrence Matrix
+
+Calculate how often products appear together in baskets.
+
+```{r co-occurrence}
+# Focus on top 50 products for manageable analysis
+top_products <- product_stats %>%
+  head(50) %>%
+  pull(Product)
+
+# Create product pairs from same basket
+product_pairs <- basket_data %>%
+  filter(Product %in% top_products) %>%
+  select(InvoiceNo, Product) %>%
+  distinct() %>%
+  inner_join(., ., by = "InvoiceNo", relationship = "many-to-many") %>%
+  filter(Product.x < Product.y) %>%  # Avoid duplicates and self-pairs
+  count(Product.x, Product.y, name = "Co_Occurrences") %>%
+  arrange(desc(Co_Occurrences))
+
+cat("\nProduct Association Summary:\n")
+cat("  Total unique product pairs:", nrow(product_pairs), "\n")
+cat("  Top pair co-occurrences:", max(product_pairs$Co_Occurrences), "\n")
+```
+
+## Top Product Associations
+
+```{r top-associations}
+# Calculate association metrics
+total_baskets <- n_distinct(basket_data$InvoiceNo)
+
+product_pair_metrics <- product_pairs %>%
+  left_join(product_stats %>% select(Product, P1_Baskets = Unique_Baskets), 
+            by = c("Product.x" = "Product")) %>%
+  left_join(product_stats %>% select(Product, P2_Baskets = Unique_Baskets), 
+            by = c("Product.y" = "Product")) %>%
+  mutate(
+    # Support: % of baskets containing both
+    Support = Co_Occurrences / total_baskets,
+    
+    # Confidence: Given P1, probability of P2
+    Confidence_1_to_2 = Co_Occurrences / P1_Baskets,
+    Confidence_2_to_1 = Co_Occurrences / P2_Baskets,
+    
+    # Lift: How much more likely together than independent
+    Lift = (Co_Occurrences / total_baskets) / ((P1_Baskets / total_baskets) * (P2_Baskets / total_baskets))
+  ) %>%
+  filter(Lift > 1, Co_Occurrences >= 10) %>%  # Meaningful associations only
+  arrange(desc(Lift))
+
+cat("\nTop 20 Product Associations (by Lift):\n\n")
+product_pair_metrics %>%
+  head(20) %>%
+  mutate(
+    Product.x = str_trunc(Product.x, 30),
+    Product.y = str_trunc(Product.y, 30),
+    Support = percent(Support, accuracy = 0.01),
+    Confidence_1_to_2 = percent(Confidence_1_to_2, accuracy = 0.1),
+    Lift = round(Lift, 2)
+  ) %>%
+  select(Product.x, Product.y, Co_Occurrences, Support, Confidence_1_to_2, Lift) %>%
+  kable(col.names = c("Product A", "Product B", "Co-occur", "Support", "Confidence", "Lift")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), font_size = 10) %>%
+  scroll_box(width = "100%", height = "500px")
+```
+
+**Interpretation:**
+- **Lift > 3:** Strong association (buy together 3x more than expected)
+- **Confidence > 50%:** If A purchased, >50% chance B is also purchased
+- **Support:** How common the combination is overall
+
+---
+
+# Association Rules Mining
+
+Use Apriori algorithm for systematic rule discovery.
+
+```{r apriori-prep, attr.output=FALSE}
+# Prepare transaction data in format required by arules
+basket_format <- basket_data %>%
+  select(InvoiceNo, Product) %>%
+  distinct() %>%
+  group_by(InvoiceNo) %>%
+  summarize(Products = list(Product), .groups = "drop")
+
+# Convert to transactions format
+transactions_list <- basket_format$Products
+names(transactions_list) <- basket_format$InvoiceNo
+
+# Create transactions object
+trans <- as(transactions_list, "transactions")
+
+cat("\nTransaction Data Summary:\n")
+cat("  Total transactions:", length(trans), "\n")
+cat("  Total unique items:", length(itemLabels(trans)), "\n")
+cat("  Density:", round(arules::size(trans) / (length(trans) * length(itemLabels(trans))) * 100, 2), "%\n")
+```
+
+```{r apriori-rules}
+# Mine association rules
+# Parameters: min support 0.5% (appears in 0.5% of baskets), min confidence 20%
+rules <- apriori(trans, 
+                 parameter = list(supp = 0.005, conf = 0.20, minlen = 2, maxlen = 3),
+                 control = list(verbose = FALSE))
+
+# Sort by lift
+rules <- sort(rules, by = "lift", decreasing = TRUE)
+
+cat("\nAssociation Rules Discovered:", length(rules), "\n\n")
+
+# Inspect top rules
+cat("Top 20 Association Rules (by Lift):\n\n")
+top_rules <- head(rules, 20)
+rules_df <- as(top_rules, "data.frame")
+
+rules_df %>%
+  mutate(
+    rules = str_replace_all(rules, "=>", " → "),
+    support = percent(support, accuracy = 0.01),
+    confidence = percent(confidence, accuracy = 0.1),
+    lift = round(lift, 2)
+  ) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), font_size = 10) %>%
+  scroll_box(width = "100%", height = "500px")
+```
+
+---
+
+# Recommendation Opportunities
+
+Identify specific cross-sell opportunities.
+
+```{r recommendations}
+# Focus on high-confidence rules for recommendations
+strong_rules <- subset(rules, confidence > 0.30 & lift > 2)
+strong_rules <- sort(strong_rules, by = "confidence", decreasing = TRUE)
+
+cat("\nHigh-Confidence Recommendations (>30% confidence, Lift >2):\n")
+cat("  Total strong rules:", length(strong_rules), "\n\n")
+
+if(length(strong_rules) > 0) {
+  recommendations_df <- as(head(strong_rules, 15), "data.frame")
+  
+  recommendations_df %>%
+    mutate(
+      rules = str_replace_all(rules, "=>", " → "),
+      support = percent(support, accuracy = 0.01),
+      confidence = percent(confidence, accuracy = 0.1),
+      lift = round(lift, 2)
+    ) %>%
+    kable(caption = "Top 15 Product Recommendation Rules") %>%
+    kable_styling(bootstrap_options = c("striped", "hover"), font_size = 10) %>%
+    scroll_box(width = "100%")
+}
+```
+
+---
+
+# Product Network Visualization
+
+Visualize product relationships as a network graph.
+
+```{r network-viz, fig.width=14, fig.height=10}
+# Create network from top associations
+network_data <- product_pair_metrics %>%
+  filter(Lift >= 3, Co_Occurrences >= 20) %>%  # Strong associations only
+  head(50) %>%
+  mutate(
+    Product.x = str_trunc(Product.x, 25),
+    Product.y = str_trunc(Product.y, 25)
+  )
+
+if(nrow(network_data) > 0) {
+  # Create igraph object
+  graph <- graph_from_data_frame(
+    network_data %>% select(Product.x, Product.y, Lift),
+    directed = FALSE
+  )
+  
+  # Calculate node importance (degree)
+  V(graph)$degree <- degree(graph)
+  
+  # Plot network
+  ggraph(graph, layout = "fr") +
+    geom_edge_link(aes(width = Lift, alpha = Lift), color = "#1976D2") +
+    geom_node_point(aes(size = degree), color = "#D32F2F", alpha = 0.7) +
+    geom_node_text(aes(label = name), size = 2.5, repel = TRUE, 
+                   max.overlaps = 20, fontface = "bold") +
+    scale_edge_width(range = c(0.5, 3)) +
+    scale_edge_alpha(range = c(0.3, 0.8)) +
+    scale_size(range = c(3, 10)) +
+    labs(
+      title = "Product Affinity Network",
+      subtitle = "Products connected by strong associations (Lift ≥ 3)",
+      caption = "Node size = centrality | Edge width = association strength"
+    ) +
+    theme_graph() +
+    theme(
+      plot.title = element_text(face = "bold", size = 16),
+      plot.subtitle = element_text(size = 12),
+      legend.position = "none"
+    )
+} else {
+  cat("Not enough strong associations for network visualization\n")
+}
+```
+
+---
+
+# Bundle Recommendations
+
+Suggest product bundles based on associations.
+
+```{r bundle-recommendations}
+# Identify 3-item bundles with strong associations
+bundle_candidates <- product_pair_metrics %>%
+  filter(Lift >= 2.5, Confidence_1_to_2 >= 0.25) %>%
+  arrange(desc(Lift)) %>%
+  head(30)
+
+cat("\n📦 RECOMMENDED PRODUCT BUNDLES\n")
+cat(rep("=", 70), "\n\n")
+
+# Display top bundles
+for(i in 1:min(10, nrow(bundle_candidates))) {
+  p1 <- str_trunc(bundle_candidates$Product.x[i], 40)
+  p2 <- str_trunc(bundle_candidates$Product.y[i], 40)
+  lift <- round(bundle_candidates$Lift[i], 2)
+  conf <- round(bundle_candidates$Confidence_1_to_2[i] * 100, 1)
+  
+  cat(sprintf("Bundle %d:\n", i))
+  cat(sprintf("  • %s\n", p1))
+  cat(sprintf("  • %s\n", p2))
+  cat(sprintf("  Association: %.1f%% of %s buyers also buy second item (Lift: %.2f)\n\n", 
+              conf, p1, lift))
+}
+```
+
+---
+
+# Revenue Opportunity Analysis
+
+Quantify potential revenue from product recommendations.
+
+```{r revenue-opportunity}
+# Calculate revenue impact of recommendations
+cat("\nREVENUE OPPORTUNITY FROM PRODUCT RECOMMENDATIONS\n")
+cat(rep("=", 70), "\n\n")
+
+# Analyze baskets that could benefit from recommendations
+single_item_baskets <- basket_sizes %>%
+  filter(Basket_Size == 1) %>%
+  nrow()
+
+small_baskets <- basket_sizes %>%
+  filter(Basket_Size <= 3) %>%
+  nrow()
+
+cat("Current State:\n")
+cat(sprintf("  • Single-item baskets: %s (%.1f%%)\n", 
+            comma(single_item_baskets),
+            single_item_baskets / nrow(basket_sizes) * 100))
+cat(sprintf("  • Small baskets (≤3 items): %s (%.1f%%)\n",
+            comma(small_baskets),
+            small_baskets / nrow(basket_sizes) * 100))
+cat(sprintf("  • Average basket value: %s\n\n", 
+            dollar(mean(basket_sizes$Basket_Value), prefix = "£")))
+
+# Conservative estimates
+cat("Revenue Opportunity (Conservative Estimates):\n\n")
+
+# Scenario 1: Convert 10% of single-item to 2-item baskets
+avg_item_value <- mean(basket_data$TotalAmount)
+scenario1_revenue <- single_item_baskets * 0.10 * avg_item_value
+
+cat("Scenario 1: Cross-sell to single-item baskets\n")
+cat(sprintf("  • Target: 10%% conversion rate\n"))
+cat(sprintf("  • Additional items: %s\n", comma(round(single_item_baskets * 0.10))))
+cat(sprintf("  • Estimated revenue: %s\n\n", dollar(scenario1_revenue, prefix = "£")))
+
+# Scenario 2: Increase average basket size by 0.5 items
+scenario2_revenue <- nrow(basket_sizes) * 0.5 * avg_item_value * 0.15  # 15% take rate
+
+cat("Scenario 2: Increase average basket size\n")
+cat(sprintf("  • Target: +0.5 items per basket average\n"))
+cat(sprintf("  • Take rate: 15%% of customers\n"))
+cat(sprintf("  • Estimated revenue: %s\n\n", dollar(scenario2_revenue, prefix = "£")))
+
+# Scenario 3: Bundle promotions
+top_bundle_volume <- sum(bundle_candidates$Co_Occurrences[1:5])
+scenario3_revenue <- top_bundle_volume * 0.20 * avg_item_value  # 20% incremental
+
+cat("Scenario 3: Promote top 5 product bundles\n")
+cat(sprintf("  • Bundle discount: 10%% off\n"))
+cat(sprintf("  • Expected incremental items: 20%% increase\n"))
+cat(sprintf("  • Estimated revenue: %s\n\n", dollar(scenario3_revenue, prefix = "£")))
+
+total_opportunity <- scenario1_revenue + scenario2_revenue + scenario3_revenue
+cat(sprintf("💰 TOTAL ANNUAL OPPORTUNITY: %s\n\n", 
+            dollar(total_opportunity, prefix = "£")))
+
+cat(rep("=", 70), "\n\n")
+```
+
+---
+
+# Strategic Recommendations
+
+```{r strategic-recommendations}
+cat("\nACTIONABLE RECOMMENDATIONS\n")
+cat(rep("=", 70), "\n\n")
+
+cat("🎯 PRIORITY 1: Implement Recommendation Engine\n")
+cat("   Actions:\n")
+cat("   • Add \"Customers also bought\" on product pages\n")
+cat("   • Show top 3-5 related products based on association rules\n")
+cat("   • Display during checkout process\n")
+cat("   • A/B test placement and messaging\n")
+cat(sprintf("   • Expected impact: %s annual revenue\n\n", 
+            dollar(scenario1_revenue + scenario2_revenue, prefix = "£")))
+
+cat("🎯 PRIORITY 2: Create Product Bundles\n")
+cat("   Actions:\n")
+cat("   • Launch top 10 product bundles with 10% discount\n")
+cat("   • Prominent placement on homepage and category pages\n")
+cat("   • Email campaign to existing customers\n")
+cat("   • Track bundle performance vs individual sales\n")
+cat(sprintf("   • Expected impact: %s annual revenue\n\n",
+            dollar(scenario3_revenue, prefix = "£")))
+
+cat("🎯 PRIORITY 3: Optimize Product Placement\n")
+cat("   Actions:\n")
+cat("   • Group associated products in same categories\n")
+cat("   • Adjacent placement in catalogs/emails\n")
+cat("   • \"Complete the set\" messaging\n")
+cat("   • Visual merchandising based on associations\n\n")
+
+cat("🎯 PRIORITY 4: Personalized Email Campaigns\n")
+cat("   Actions:\n")
+cat("   • Send targeted cross-sell emails based on past purchases\n")
+cat("   • \"You might also like\" recommendations\n")
+cat("   • Time recommendations based on purchase cycles\n")
+cat("   • Segment by customer value (CLV tiers)\n\n")
+
+cat("🎯 PRIORITY 5: Monitor and Optimize\n")
+cat("   Actions:\n")
+cat("   • Track recommendation click-through rates\n")
+cat("   • Measure conversion rates by recommendation type\n")
+cat("   • Update association rules monthly\n")
+cat("   • A/B test different recommendation strategies\n\n")
+
+cat(rep("=", 70), "\n\n")
+```
+
+---
+
+# Export Recommendations
+
+```{r export-recommendations}
+# Export recommendation rules for implementation
+if(length(strong_rules) > 0) {
+  recommendations_export <- as(strong_rules, "data.frame") %>%
+    separate(rules, into = c("Antecedent", "Consequent"), sep = " => ") %>%
+    mutate(
+      Antecedent = str_remove_all(Antecedent, "[{}]"),
+      Consequent = str_remove_all(Consequent, "[{}]")
+    ) %>%
+    arrange(desc(confidence))
+  
+  export_path <- here("data", "processed", "product_recommendations.csv")
+  write_csv(recommendations_export, export_path)
+  
+  cat("✓ Product recommendations exported to:", export_path, "\n")
+  cat("  Rules exported:", nrow(recommendations_export), "\n\n")
+  
+  cat("Ready for:\n")
+  cat("  • E-commerce platform integration\n")
+  cat("  • Recommendation engine\n")
+  cat("  • Marketing campaign targeting\n")
+  cat("  • Merchandising decisions\n")
+}
+```
+
+---
+
+# Summary & Key Takeaways
+
+```{r summary}
+cat("\n")
+cat(rep("=", 70), "\n")
+cat("            PRODUCT AFFINITY ANALYSIS COMPLETE\n")
+cat(rep("=", 70), "\n\n")
+
+cat("✅ ACHIEVEMENTS:\n\n")
+cat("  1. Analyzed", n_distinct(basket_data$InvoiceNo), "baskets\n")
+cat("  2. Discovered", length(rules), "association rules\n")
+cat("  3. Identified", length(strong_rules), "high-confidence recommendations\n")
+cat("  4. Created product network showing", 
+    nrow(network_data), "strong associations\n")
+cat("  5. Quantified revenue opportunity:", 
+    dollar(total_opportunity, prefix = "£"), "\n\n")
+
+cat("🎯 KEY INSIGHTS:\n\n")
+cat(sprintf("  • Average basket size: %.1f items\n", mean(basket_sizes$Basket_Size)))
+cat(sprintf("  • Single-item baskets: %.1f%% (cross-sell opportunity)\n",
+            single_item_baskets / nrow(basket_sizes) * 100))
+cat(sprintf("  • Top association lift: %.1fx\n", max(product_pair_metrics$Lift)))
+cat(sprintf("  • Revenue opportunity: %s annually\n", 
+            dollar(total_opportunity, prefix = "£")))
+
+cat("\n💡 NEXT STEPS:\n\n")
+cat("  1. Implement recommendation engine on website\n")
+cat("  2. Launch top 10 product bundles\n")
+cat("  3. A/B test recommendation placements\n")
+cat("  4. Set up monthly rule updates\n")
+cat("  5. Track recommendation performance metrics\n\n")
+
+cat(rep("=", 70), "\n\n")
+```
+
+---
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```
+
+---
+
+**✅ Product Affinity Analysis Complete!**
+
+*This analysis enables data-driven cross-sell strategies and product bundling.*
