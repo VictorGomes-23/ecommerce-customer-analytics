@@ -23,7 +23,9 @@ This analysis segments customers using RFM (Recency, Frequency, Monetary) method
 - Quantify revenue opportunity by segment
 
 **Business Impact:**
-*[Will be filled after completing analysis]*
+- Identified £298,701 in recoverable at-risk revenue (40% win-back of £746,752 at-risk revenue)
+- Projected 22.7% revenue increase over a 12-month horizon driven by segment-level interventions (£2,018,999 growth potential on £8,887,209 current revenue)
+- Created segment-specific marketing strategies prioritizing high-value segments, with 3–5x expected ROI based on targeted retention and win-back allocation across RFM segments
 
 ---
 
@@ -84,23 +86,16 @@ knitr::opts_chunk$set(
 ```
 
 ```{r load-libraries}
-# Data manipulation and analysis
-library(tidyverse)      # Core data manipulation
-library(lubridate)      # Date handling
-library(here)           # File paths
-
-# Visualization
-library(scales)         # Number formatting
-library(viridis)        # Color palettes
-library(ggthemes)       # Additional themes
-
-# Tables and reporting
-library(knitr)          # Table formatting
-library(kableExtra)     # Enhanced tables
-library(DT)             # Interactive tables
+library(tidyverse)     
+library(lubridate)      
+library(here)          
+library(scales)        
+library(viridis)        
+library(ggthemes)       
+library(knitr)          
+library(kableExtra)     
+library(DT)             
 ```
-
-**Packages loaded:** All necessary tools for RFM analysis and visualization.
 
 ---
 
@@ -434,8 +429,6 @@ cat("This should be 0 or very close to 0.\n")
 
 **Segmentation complete:** All customers assigned to actionable business segments.
 
-**Important:** If "Other" count is high, we need to review segment definitions.
-
 ## Segment Distribution Overview
 
 ```{r segment-distribution}
@@ -744,13 +737,13 @@ cat(sprintf("\nTotal growth opportunity: %d customers (%.1f%% of base)\n",
 cat("\n", rep("=", 60), "\n\n", sep = "")
 ```
 
-**Initial findings documented:** These insights will guide Day 2 visualizations and Day 3 recommendations.
+**Initial findings documented:** These insights will guide STEP 2 visualizations and STEP 3 recommendations.
 
 ---
 
 # Data Export for Visualization
 
-Save the RFM-scored dataset for Day 2 visualization work.
+Save the RFM-scored dataset for STEP 2 visualization work.
 
 ```{r export-rfm-data}
 # Export the complete RFM dataset
@@ -762,13 +755,13 @@ write_csv(segment_summary, here("data", "processed", "rfm_segment_summary.csv"))
 cat("Segment summary exported to: data/processed/rfm_segment_summary.csv\n")
 ```
 
-**Export complete:** Data ready for Day 2 visualization work.
+**Export complete:** Data ready for STEP 2 visualization work.
 
 ---
 
 # Next Steps
 
-**Day 1 Complete! ✓**
+**STEP 1 Complete! ✓**
 
 We've successfully:
 - ✅ Calculated RFM scores for all customers
@@ -776,9 +769,9 @@ We've successfully:
 - ✅ Analyzed segment characteristics and revenue distribution
 - ✅ Identified key risks and opportunities
 
-**Day 2 Preview:**
+**STEP 2 Preview:**
 
-Tomorrow we'll create compelling visualizations including:
+We'll create compelling visualizations including:
 1. Customer distribution by segment (bar chart)
 2. Revenue contribution comparison (stacked bar)
 3. RFM 3D scatter plot (interactive)
@@ -787,7 +780,7 @@ Tomorrow we'll create compelling visualizations including:
 6. Pareto analysis
 7. Customer lifecycle flow
 
-**Day 3 Preview:**
+**STEP 3 Preview:**
 
 Final day will focus on:
 - Business recommendations for each segment
@@ -798,7 +791,7 @@ Final day will focus on:
 
 ---
 
-# DAY 2: VISUALIZATIONS & DEEP DIVE ANALYSIS
+# STEP 2: VISUALIZATIONS & DEEP DIVE ANALYSIS
 
 ---
 
@@ -1508,14 +1501,14 @@ cat("All visualizations created and documented!\n")
 
 ---
 
-# Day 2 Summary
+# STEP 2 Summary
 
-**Visualization Day Complete! ✓**
+**Visualization STEP Complete! ✓**
 
 
 ---
 
-# DAY 3: BUSINESS INSIGHTS & RECOMMENDATIONS
+# STEP 3: BUSINESS INSIGHTS & RECOMMENDATIONS
 
 ---
 
