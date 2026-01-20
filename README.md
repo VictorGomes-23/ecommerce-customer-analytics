@@ -77,7 +77,7 @@ A UK-based online retailer specializing in unique gifts needs to:
 - Projected 22.7% revenue increase over a 12-month horizon driven by segment-level interventions (£2,018,999 growth potential on £8,887,209 current revenue)
 - Created segment-specific marketing strategies prioritizing high-value segments, with 3–5x expected ROI based on targeted retention and win-back allocation across RFM segments
 
-📊 [View RFM Analysis Notebook →](notebooks/03_rfm_analysis.Rmd)
+📊 [View RFM Analysis Notebook →](Notebooks/03_rfm_analysis.Rmd)
 
 ---
 
@@ -97,7 +97,7 @@ A UK-based online retailer specializing in unique gifts needs to:
 - Established clear retention benchmarks at 1, 3, and 6 months for ongoing performance monitoring and cohort health tracking
 - Quantified impact of a 10 percentage point retention improvement, which would materially increase long-term retention beyond the current 26.6% plateau, translating directly into incremental lifetime revenue proportional to cohort size and average order value, as defined by the retention curve framework
 
-📊 [View Cohort Analysis Notebook →](notebooks/04_cohort_analysis.Rmd)
+📊 [View Cohort Analysis Notebook →](Notebooks/04_cohort_analysis.Rmd)
 
 ---
 
@@ -119,7 +119,7 @@ A UK-based online retailer specializing in unique gifts needs to:
 - Quantified 439 fading stars requiring urgent retention intervention to prevent material CLV erosion
 - Created a 5-tier CLV segmentation framework enabling differentiated acquisition, retention, and loyalty strategies across the customer lifecycle
 
-📊 [View CLV Prediction Notebook →](notebooks/05_clv_prediction.Rmd)
+📊 [View CLV Prediction Notebook →](Notebooks/05_clv_prediction.Rmd)
 
 ---
 
@@ -154,7 +154,7 @@ Optimize product recommendations, bundle pricing, and cross-sell strategies.
   These bundles present an opportunity to increase basket size by an estimated **15–25%** through targeted cross-sell and merchandising strategies.
 
 
-📊 [View Product Affinity Notebook →](notebooks/06_product_affinity.Rmd) 
+📊 [View Product Affinity Notebook →](Notebooks/06_product_affinity.Rmd) 
 
 ---
 
@@ -168,7 +168,7 @@ Optimize product recommendations, bundle pricing, and cross-sell strategies.
 - Key churn indicators
 - At-risk customer identification
 
-📊 [View Churn Prediction Notebook →](notebooks/07_churn_prediction.Rmd) 
+📊 [View Churn Prediction Notebook →](Notebooks/07_churn_prediction.Rmd) 
 
 ---
 
@@ -182,7 +182,7 @@ Optimize product recommendations, bundle pricing, and cross-sell strategies.
 - Statistical significance testing
 - Power analysis and sample size calculations
 
-📊 [View A/B Testing Notebook →](notebooks/08_ab_testing.Rmd) 
+📊 [View A/B Testing Notebook →](Notebooks/08_ab_testing.Rmd) 
 
 ---
 
