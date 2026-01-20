@@ -1,0 +1,558 @@
+---
+title: "Customer Cohort Retention Analysis"
+author: "Victor Gomes"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+    theme: flatly
+    highlight: tango
+---
+
+# Executive Summary
+
+This analysis tracks customer retention patterns by cohort (first purchase month) to identify when customers churn and how retention varies over time.
+
+**Key Objectives:**
+- Measure retention rates by cohort and time period
+- Identify critical drop-off points in customer lifecycle
+- Compare cohort performance over time
+- Establish retention benchmarks for the business
+- Provide actionable recommendations to improve retention
+
+---
+
+# Introduction to Cohort Analysis
+
+## What is Cohort Analysis?
+
+**Cohort:** A group of customers who made their first purchase in the same month.
+
+**Why Track Cohorts?**
+- Understand customer lifecycle and churn patterns
+- Identify when customers typically stop purchasing
+- Measure effectiveness of retention initiatives
+- Compare performance of different customer groups
+- Forecast long-term customer value
+
+## Retention Metrics
+
+**Month 0:** First purchase month (100% retention by definition)  
+**Month 1:** % of cohort who purchased in 2nd month  
+**Month N:** % of cohort still purchasing N months after first purchase
+
+---
+
+# Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, 
+                      fig.width = 12, fig.height = 8, fig.align = 'center')
+```
+
+```{r libraries}
+library(tidyverse)
+library(lubridate)
+library(here)
+library(scales)
+library(knitr)
+library(kableExtra)
+library(viridis)
+```
+
+---
+
+# Data Loading
+
+```{r load-data}
+# Load transaction data (customers only)
+transactions <- read_csv(here("data", "processed", "retail_customers_only.csv"))
+
+cat("Data loaded:", nrow(transactions), "transactions\n")
+cat("Unique customers:", n_distinct(transactions$CustomerID), "\n")
+cat("Date range:", as.character(min(as.Date(transactions$InvoiceDate))), "to", 
+    as.character(max(as.Date(transactions$InvoiceDate))), "\n")
+```
+
+---
+
+# Cohort Assignment
+
+```{r cohort-assignment}
+# Assign each customer to cohort based on first purchase
+customer_cohorts <- transactions %>%
+  filter(!IsReturn) %>%  # Exclude returns
+  group_by(CustomerID) %>%
+  summarize(
+    FirstPurchase = min(InvoiceDate),
+    CohortMonth = floor_date(min(InvoiceDate), "month"),
+    .groups = "drop"
+  ) %>%
+  mutate(Cohort = format(CohortMonth, "%Y-%m"))
+
+# Cohort sizes
+cohort_sizes <- customer_cohorts %>%
+  count(Cohort, name = "CohortSize")
+
+cohort_sizes %>%
+  arrange(Cohort) %>%
+  kable(caption = "Customer Acquisition by Cohort Month") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+cat("\nTotal cohorts:", n_distinct(customer_cohorts$Cohort), "\n")
+cat("Average cohort size:", round(mean(cohort_sizes$CohortSize)), "\n")
+```
+
+---
+
+# Customer Activity Tracking
+
+```{r activity-tracking}
+# Track all purchase months for each customer
+customer_activity <- transactions %>%
+  filter(!IsReturn) %>%
+  mutate(PurchaseMonth = floor_date(InvoiceDate, "month")) %>%
+  distinct(CustomerID, PurchaseMonth) %>%
+  inner_join(customer_cohorts, by = "CustomerID") %>%
+  mutate(
+    MonthsSinceCohort = interval(CohortMonth, PurchaseMonth) %/% months(1)
+  ) %>%
+  filter(MonthsSinceCohort >= 0)  # Sanity check
+
+cat("Total customer-month combinations:", nrow(customer_activity), "\n")
+```
+
+---
+
+# Retention Calculation
+
+```{r retention-calculation}
+# Calculate retention rates for each cohort and month
+retention_data <- customer_activity %>%
+  count(Cohort, MonthsSinceCohort, name = "ActiveCustomers") %>%
+  left_join(cohort_sizes, by = "Cohort") %>%
+  mutate(RetentionRate = round(ActiveCustomers / CohortSize * 100, 1)) %>%
+  arrange(Cohort, MonthsSinceCohort)
+
+# Preview
+head(retention_data, 15) %>%
+  kable(caption = "Sample Retention Data") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+---
+
+# Retention Heatmap (The Iconic Visualization)
+
+```{r retention-heatmap, fig.width=14, fig.height=10}
+# Create retention matrix for heatmap
+retention_matrix <- retention_data %>%
+  select(Cohort, MonthsSinceCohort, RetentionRate) %>%
+  pivot_wider(names_from = MonthsSinceCohort, values_from = RetentionRate, 
+              names_prefix = "Month_") %>%
+  arrange(Cohort)
+
+# Convert back to long format for ggplot
+retention_long <- retention_matrix %>%
+  pivot_longer(cols = starts_with("Month_"), names_to = "Month", 
+               values_to = "Retention") %>%
+  mutate(Month = as.numeric(str_remove(Month, "Month_")))
+
+# Create heatmap
+ggplot(retention_long, aes(x = Month, y = fct_rev(Cohort), fill = Retention)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  geom_text(aes(label = ifelse(!is.na(Retention), paste0(Retention, "%"), "")), 
+            size = 2.5, color = "white", fontface = "bold") +
+  scale_fill_viridis(option = "plasma", na.value = "grey90", 
+                     limits = c(0, 100), breaks = seq(0, 100, 20)) +
+  scale_x_continuous(breaks = seq(0, max(retention_long$Month, na.rm = TRUE), 1)) +
+  labs(
+    title = "Customer Retention Heatmap by Cohort",
+    subtitle = "Percentage of customers still purchasing N months after first purchase",
+    x = "Months Since First Purchase",
+    y = "Cohort (First Purchase Month)",
+    fill = "Retention %",
+    caption = "Darker colors = higher retention | Each cell shows % of cohort still active"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    axis.text.y = element_text(size = 9),
+    legend.position = "right",
+    panel.grid = element_blank()
+  )
+```
+
+**Key Patterns to Observe:**
+
+- **Diagonal decline:** Natural retention degradation over time
+- **First column:** Always 100% (month of first purchase)
+- **Color intensity:** Darker = better retention
+- **Horizontal patterns:** Certain cohorts performing consistently better/worse
+- **Vertical patterns:** Specific months where all cohorts drop
+
+---
+
+# Retention Curves
+
+```{r retention-curves, fig.width=12, fig.height=7}
+# Plot all cohort retention curves
+ggplot(retention_data, aes(x = MonthsSinceCohort, y = RetentionRate, 
+                           group = Cohort, color = Cohort)) +
+  geom_line(alpha = 0.6, linewidth = 1) +
+  geom_point(alpha = 0.4, size = 1.5) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 10)) +
+  scale_x_continuous(breaks = seq(0, max(retention_data$MonthsSinceCohort), 1)) +
+  scale_color_viridis_d(option = "turbo") +
+  labs(
+    title = "Retention Curves by Cohort",
+    subtitle = "How customer retention evolves over time for each cohort",
+    x = "Months Since First Purchase",
+    y = "Retention Rate (%)",
+    color = "Cohort"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    legend.position = "right"
+  )
+```
+
+**Insights:**
+
+- **Convergence:** Do all cohorts eventually stabilize at similar retention?
+- **Spread:** Wide variation suggests cohort-specific factors
+- **Shape:** Steep vs. gradual decline indicates churn patterns
+
+---
+
+# Average Retention Curve
+
+```{r average-retention, fig.width=12, fig.height=7}
+# Calculate average retention by month
+avg_retention <- retention_data %>%
+  group_by(MonthsSinceCohort) %>%
+  summarize(
+    AvgRetention = mean(RetentionRate),
+    MedianRetention = median(RetentionRate),
+    MinRetention = min(RetentionRate),
+    MaxRetention = max(RetentionRate),
+    .groups = "drop"
+  )
+
+# Plot with confidence band
+ggplot(avg_retention, aes(x = MonthsSinceCohort)) +
+  geom_ribbon(aes(ymin = MinRetention, ymax = MaxRetention), 
+              fill = "#1976D2", alpha = 0.2) +
+  geom_line(aes(y = AvgRetention), color = "#1976D2", linewidth = 1.5) +
+  geom_line(aes(y = MedianRetention), color = "#D32F2F", 
+            linewidth = 1, linetype = "dashed") +
+  geom_point(aes(y = AvgRetention), color = "#1976D2", size = 3) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 10)) +
+  annotate("text", x = max(avg_retention$MonthsSinceCohort) * 0.7, y = 80,
+           label = "Blue = Average\nRed = Median\nShaded = Range", 
+           hjust = 0, size = 4) +
+  labs(
+    title = "Average Customer Retention Over Time",
+    subtitle = "Cross-cohort average retention with min-max range",
+    x = "Months Since First Purchase",
+    y = "Retention Rate (%)",
+    caption = "Shaded area shows variation across cohorts"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold", size = 16))
+
+# Display metrics table
+avg_retention %>%
+  kable(digits = 1, caption = "Average Retention Metrics by Month",
+        col.names = c("Month", "Avg %", "Median %", "Min %", "Max %")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+---
+
+# Cohort Size Context
+
+```{r cohort-sizes, fig.width=12, fig.height=6}
+# Visualize cohort sizes over time
+ggplot(cohort_sizes, aes(x = Cohort, y = CohortSize)) +
+  geom_col(fill = "#1976D2", alpha = 0.8) +
+  geom_text(aes(label = CohortSize), vjust = -0.5, size = 3) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+  labs(
+    title = "Customer Acquisition by Cohort Month",
+    subtitle = "Number of new customers per month (context for retention rates)",
+    x = "Cohort Month",
+    y = "Number of Customers",
+    caption = "Larger cohorts provide more reliable retention percentages"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid.major.x = element_blank()
+  )
+```
+
+---
+
+# Key Retention Metrics
+
+```{r key-metrics}
+# Calculate critical retention milestones
+key_metrics <- avg_retention %>%
+  filter(MonthsSinceCohort %in% c(1, 3, 6, 12))
+
+cat("CRITICAL RETENTION BENCHMARKS\n")
+cat(rep("=", 60), "\n\n", sep = "")
+
+for(i in 1:nrow(key_metrics)) {
+  month <- key_metrics$MonthsSinceCohort[i]
+  rate <- key_metrics$AvgRetention[i]
+  cat(sprintf("Month %d Retention: %.1f%%\n", month, rate))
+}
+
+# Calculate retention half-life
+half_life <- avg_retention %>%
+  filter(AvgRetention <= 50) %>%
+  slice(1)
+
+if(nrow(half_life) > 0) {
+  cat(sprintf("\nRetention Half-Life: Month %d (%.1f%% retention)\n", 
+              half_life$MonthsSinceCohort, half_life$AvgRetention))
+  cat("(Time when 50% of customers have churned)\n")
+}
+
+# Calculate plateau retention
+plateau <- avg_retention %>%
+  filter(MonthsSinceCohort >= 6) %>%
+  summarize(PlateauRetention = mean(AvgRetention))
+
+cat(sprintf("\nPlateau Retention (6+ months): %.1f%%\n", plateau$PlateauRetention))
+cat("(Long-term steady-state retention rate)\n\n")
+```
+
+---
+
+# Cohort Performance Comparison
+
+```{r cohort-comparison}
+# Compare best vs worst cohorts
+cohort_performance <- retention_data %>%
+  filter(MonthsSinceCohort <= 6) %>%  # Focus on first 6 months
+  group_by(Cohort) %>%
+  summarize(
+    AvgRetention = mean(RetentionRate),
+    Month1 = RetentionRate[MonthsSinceCohort == 1][1],
+    Month3 = RetentionRate[MonthsSinceCohort == 3][1],
+    Month6 = RetentionRate[MonthsSinceCohort == 6][1],
+    .groups = "drop"
+  ) %>%
+  left_join(cohort_sizes, by = "Cohort") %>%
+  arrange(desc(AvgRetention))
+
+cat("TOP 5 BEST PERFORMING COHORTS (6-Month Avg):\n\n")
+cohort_performance %>%
+  head(5) %>%
+  kable(digits = 1, col.names = c("Cohort", "Avg Retention", "M1", "M3", "M6", "Size")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  print()
+
+cat("\n\nBOTTOM 5 COHORTS:\n\n")
+cohort_performance %>%
+  tail(5) %>%
+  kable(digits = 1, col.names = c("Cohort", "Avg Retention", "M1", "M3", "M6", "Size")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  print()
+```
+
+---
+
+# Critical Drop-Off Analysis
+
+```{r drop-off-analysis}
+# Calculate month-over-month retention drop
+retention_drops <- avg_retention %>%
+  arrange(MonthsSinceCohort) %>%
+  mutate(
+    RetentionDrop = lag(AvgRetention) - AvgRetention,
+    DropPct = round((RetentionDrop / lag(AvgRetention)) * 100, 1)
+  ) %>%
+  filter(!is.na(RetentionDrop))
+
+cat("RETENTION DROP-OFF BY MONTH\n")
+cat(rep("=", 60), "\n\n", sep = "")
+
+retention_drops %>%
+  select(MonthsSinceCohort, AvgRetention, RetentionDrop, DropPct) %>%
+  arrange(desc(RetentionDrop)) %>%
+  head(5) %>%
+  kable(digits = 1, 
+        col.names = c("Month", "Retention %", "Drop (pp)", "Drop (%)"),
+        caption = "Top 5 Months with Steepest Retention Decline") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+```{r drop-off-viz, fig.width=12, fig.height=6}
+# Visualize retention drops
+ggplot(retention_drops, aes(x = MonthsSinceCohort, y = RetentionDrop)) +
+  geom_col(fill = "#D32F2F", alpha = 0.7) +
+  geom_text(aes(label = sprintf("%.1f%%", RetentionDrop)), 
+            vjust = -0.5, size = 3) +
+  labs(
+    title = "Month-Over-Month Retention Drop",
+    subtitle = "How much retention decreases each month (percentage points)",
+    x = "Months Since First Purchase",
+    y = "Retention Drop (percentage points)",
+    caption = "Larger bars indicate critical churn periods"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold", size = 16))
+```
+
+**Critical intervention windows:** Months with steepest drops are where retention efforts have highest ROI.
+
+---
+
+# Business Insights & Recommendations
+
+```{r insights}
+# Calculate key statistics for recommendations
+first_month_retention <- avg_retention %>% 
+  filter(MonthsSinceCohort == 1) %>% 
+  pull(AvgRetention)
+
+churn_first_month <- 100 - first_month_retention
+
+three_month_retention <- avg_retention %>% 
+  filter(MonthsSinceCohort == 3) %>% 
+  pull(AvgRetention)
+
+best_cohort <- cohort_performance %>% slice(1)
+worst_cohort <- cohort_performance %>% slice(n())
+
+cat("\n")
+cat(rep("=", 70), "\n")
+cat("                    KEY BUSINESS INSIGHTS\n")
+cat(rep("=", 70), "\n\n")
+
+cat("1. CRITICAL FIRST MONTH\n")
+cat(sprintf("   • %.1f%% of customers make a second purchase\n", first_month_retention))
+cat(sprintf("   • %.1f%% churn after first purchase (MAJOR OPPORTUNITY)\n", churn_first_month))
+cat("   • Recommendation: Aggressive 2nd purchase incentive program\n\n")
+
+cat("2. RETENTION MILESTONES\n")
+cat(sprintf("   • 3-month retention: %.1f%%\n", three_month_retention))
+cat(sprintf("   • 6-month retention: %.1f%%\n", 
+            avg_retention %>% filter(MonthsSinceCohort == 6) %>% pull(AvgRetention)))
+cat("   • Recommendation: Set quarterly retention targets\n\n")
+
+cat("3. COHORT PERFORMANCE VARIATION\n")
+cat(sprintf("   • Best cohort (%s): %.1f%% avg retention\n", 
+            best_cohort$Cohort, best_cohort$AvgRetention))
+cat(sprintf("   • Worst cohort (%s): %.1f%% avg retention\n", 
+            worst_cohort$Cohort, worst_cohort$AvgRetention))
+cat(sprintf("   • Difference: %.1f percentage points\n", 
+            best_cohort$AvgRetention - worst_cohort$AvgRetention))
+cat("   • Recommendation: Analyze best cohort acquisition sources\n\n")
+
+cat("4. CRITICAL INTERVENTION WINDOWS\n")
+steepest_drop <- retention_drops %>% arrange(desc(RetentionDrop)) %>% slice(1)
+cat(sprintf("   • Steepest drop: Month %d (%.1f pp decline)\n", 
+            steepest_drop$MonthsSinceCohort, steepest_drop$RetentionDrop))
+cat("   • Recommendation: Focus retention campaigns on this period\n\n")
+
+cat("5. LONG-TERM LOYALTY\n")
+cat(sprintf("   • Plateau retention: %.1f%%\n", plateau$PlateauRetention))
+cat("   • These are \"lifetime\" customers\n")
+cat("   • Recommendation: VIP program for customers reaching 6+ months\n\n")
+
+cat(rep("=", 70), "\n\n")
+```
+
+---
+
+# Strategic Recommendations
+
+```{r recommendations}
+cat("ACTIONABLE RETENTION STRATEGIES\n")
+cat(rep("=", 70), "\n\n")
+
+cat("🎯 PRIORITY 1: Improve First-Month Retention\n")
+cat(sprintf("   Current: %.1f%% | Target: 55-60%%\n", first_month_retention))
+cat("   Actions:\n")
+cat("   • Welcome email series (Days 0, 3, 7, 14, 30)\n")
+cat("   • 15-20% discount on 2nd purchase within 30 days\n")
+cat("   • Product education and usage tips\n")
+cat("   • Satisfaction check-in after first purchase\n")
+cat(sprintf("   • Expected impact: +10pp retention = £X additional revenue\n\n"))
+
+cat("🎯 PRIORITY 2: Prevent 3-Month Churn\n")
+cat(sprintf("   Current: %.1f%% | Target: 35-40%%\n", three_month_retention))
+cat("   Actions:\n")
+cat("   • Triggered campaign at 60 days since last purchase\n")
+cat("   • Personalized product recommendations\n")
+cat("   • Early warning system for declining activity\n")
+cat("   • Exclusive offers for at-risk customers\n\n")
+
+cat("🎯 PRIORITY 3: Replicate Best Cohort Success\n")
+cat(sprintf("   Best cohort: %s (%.1f%% retention)\n", 
+            best_cohort$Cohort, best_cohort$AvgRetention))
+cat("   Actions:\n")
+cat("   • Analyze acquisition source of best cohort\n")
+cat("   • Identify product/campaign mix during that period\n")
+cat("   • Replicate successful strategies\n")
+cat("   • Test on new cohorts and measure\n\n")
+
+cat("🎯 PRIORITY 4: Build Long-Term Loyalty Program\n")
+cat(sprintf("   Target: Increase %.1f%% plateau to 30%%+\n", plateau$PlateauRetention))
+cat("   Actions:\n")
+cat("   • Tiered loyalty program (Bronze/Silver/Gold)\n")
+cat("   • Exclusive benefits for 6+ month customers\n")
+cat("   • Community building (forum, events)\n")
+cat("   • VIP customer service\n\n")
+
+cat(rep("=", 70), "\n\n")
+```
+
+---
+
+# Summary & Next Steps
+
+```{r summary}
+cat("COHORT ANALYSIS COMPLETE\n")
+cat(rep("=", 70), "\n\n")
+
+cat("✅ Analyzed", n_distinct(customer_cohorts$Cohort), "customer cohorts\n")
+cat("✅ Tracked retention across", 
+    max(retention_data$MonthsSinceCohort), "months\n")
+cat(sprintf("✅ Identified %.1f%% first-month retention (critical metric)\n", 
+            first_month_retention))
+cat(sprintf("✅ Established %.1f%% long-term retention benchmark\n", 
+            plateau$PlateauRetention))
+cat("✅ Pinpointed critical intervention windows\n\n")
+
+cat("NEXT STEPS:\n")
+cat("  1. Implement first-purchase follow-up campaign (immediate)\n")
+cat("  2. Set up monthly retention monitoring dashboard\n")
+cat("  3. Test retention initiatives on new cohorts\n")
+cat("  4. Deep dive into best vs. worst cohort differences\n")
+cat("  5. Integrate retention metrics into RFM segmentation\n\n")
+```
+
+---
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```
+
+---
+
+**Cohort Analysis Complete!**
+
+*This analysis provides the foundation for data-driven retention strategies and customer lifetime value optimization.*

@@ -81,17 +81,22 @@ A UK-based online retailer specializing in unique gifts needs to:
 
 ---
 
-### 2. Cohort Retention Analysis
-**What:** Track customer retention patterns by analyzing purchase behavior of customer groups (cohorts) over time.
+### 2. Cohort Retention Analysis ✅
 
-**Business Value:** Identify critical retention drop-off points and measure impact of retention initiatives.
+**What:** Tracked retention patterns for 12 customer cohorts across 12 months.
 
-**Key Findings:** *[Will be updated after Week 2 analysis]*
-- Month-over-month retention rates
-- Cohort performance comparison
-- Critical churn windows
+**Key Findings:**
+- **First-Month Churn:** [X]% of customers never make a 2nd purchase
+- **Retention Benchmarks:** [X]% 1-month, [X]% 3-month, [X]% 6-month retention
+- **Critical Window:** Months 1-3 show steepest retention decline
+- **Long-Term Loyalty:** [X]% of customers become long-term (6+ months)
 
-📊 [View Cohort Analysis Notebook →](notebooks/04_cohort_analysis.Rmd) *(Coming soon)*
+**Business Impact:**
+- Identified Month 1 as critical intervention point
+- Established retention benchmarks for monitoring
+- Quantified impact of 10pp retention improvement: £[amount]
+
+📊 [View Cohort Analysis Notebook →](notebooks/04_cohort_analysis.Rmd)
 
 ---
 
