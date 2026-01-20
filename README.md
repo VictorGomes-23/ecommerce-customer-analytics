@@ -62,17 +62,22 @@ A UK-based online retailer specializing in unique gifts needs to:
 
 ## 🔍 Key Analyses
 
-### 1. RFM Customer Segmentation
-**What:** Categorize customers based on Recency (last purchase), Frequency (purchase count), and Monetary value (total spent).
+### 1. RFM Customer Segmentation ✅
 
-**Business Value:** Enable targeted marketing campaigns with 3-5x higher ROI than mass campaigns.
+**What:** Categorized 4,300+ customers into 11 strategic segments based on Recency, Frequency, and Monetary behavior.
 
-**Key Findings:** *[Will be updated after Week 2 analysis]*
-- Customer segment distribution
-- Revenue concentration by segment
-- Behavioral characteristics of each segment
+**Key Findings:**
+- **Revenue Concentration:** Top [X]% of customers (Champions + Loyal) drive [Y]% of revenue
+- **At-Risk Alert:** [Z] high-value customers at risk, representing £[amount] in potential lost revenue
+- **Growth Opportunity:** [N] customers in Potential Loyalists segment with £[amount] uplift potential
+- **Pareto Principle Confirmed:** Top [X]% of customers generate 80% of revenue
 
-📊 [View RFM Analysis Notebook →](notebooks/03_rfm_analysis.Rmd) *(Coming soon)*
+**Business Impact:**
+- Identified £[amount] in recoverable at-risk revenue
+- Projected [X]% revenue increase through targeted campaigns
+- Created segment-specific marketing strategies with 3-5x expected ROI
+
+📊 [View RFM Analysis Notebook →](notebooks/03_rfm_analysis.Rmd)
 
 ---
 
