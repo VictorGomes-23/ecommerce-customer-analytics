@@ -23,11 +23,11 @@ library(DT)
 # ============================================================================
 
 # Load data
-transactions <- read_csv("../data/processed/retail_customers_only.csv", 
+transactions <- read_csv("data/retail_customers_only.csv", 
                          show_col_types = FALSE)
-customer_rfm <- read_csv("../data/processed/customer_rfm_scored.csv",
+customer_rfm <- read_csv("data/customer_rfm_scored.csv",
                          show_col_types = FALSE)
-churn_predictions <- read_csv("../data/processed/churn_predictions.csv",
+churn_predictions <- read_csv("data/churn_predictions.csv",
                               show_col_types = FALSE)
 
 # Prepare data for dashboard
@@ -125,12 +125,11 @@ ui <- dashboardPage(
   dashboardBody(
     # Custom CSS for styling
     tags$head(
-      tags$link(rel = "stylesheet", type = "text/css", href = "custom.css"),
       tags$style(HTML("
-    .box.box-solid.box-primary > .box-header {
-      background: #3c8dbc;
-      color: #fff;
-      }
+        .box.box-solid.box-primary > .box-header {
+          background: #3c8dbc;
+          color: #fff;
+        }
         .small-box {
           border-radius: 5px;
         }
@@ -365,18 +364,6 @@ ui <- dashboardPage(
 # ============================================================================
 # SERVER LOGIC
 # ============================================================================
-observeEvent(input$refresh, {
-  showModal(modalDialog(
-    title = "Refreshing Data...",
-    "Please wait while we update the dashboard.",
-    footer = NULL,
-    easyClose = FALSE
-  ))
-  
-  Sys.sleep(1)  # Simulate loading
-  
-  removeModal()
-})
 
 server <- function(input, output, session) {
   
