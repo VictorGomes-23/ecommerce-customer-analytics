@@ -1,0 +1,688 @@
+---
+title: "A/B Testing: Email Campaign Effectiveness"
+author: "Victor Gomes"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+    theme: flatly
+    highlight: tango
+---
+
+# Executive Summary
+
+This analysis evaluates the effectiveness of a personalized email marketing campaign targeting at-risk customers using rigorous A/B testing methodology.
+
+**Test Scenario:**
+- **Control (A):** Standard 10% discount email
+- **Treatment (B):** Personalized 15% discount + free shipping
+- **Target Audience:** High and medium churn risk customers
+- **Sample Size:** 1,000 customers per group
+
+**Key Findings:** *[Will be populated after analysis]*
+- Statistical significance of results
+- Incremental revenue and ROI
+- Recommended campaign strategy
+
+---
+
+# Introduction to A/B Testing
+
+## What is A/B Testing?
+
+**A/B Testing (Split Testing):** A controlled experiment comparing two versions of a marketing intervention to determine which performs better.
+
+**Why A/B Test?**
+- **Evidence-based decisions:** Move beyond gut feeling
+- **Quantify impact:** Measure exact lift from changes
+- **Risk mitigation:** Test before full rollout
+- **Continuous improvement:** Iterate based on data
+
+## A/B Testing Framework
+
+**Key Components:**
+1. **Hypothesis:** Clear prediction about expected outcome
+2. **Randomization:** Fair assignment to control/treatment
+3. **Sample Size:** Adequate power to detect meaningful differences
+4. **Success Metrics:** Quantifiable, business-relevant KPIs
+5. **Statistical Testing:** Determine if results are significant
+
+**Common Pitfalls to Avoid:**
+- Peeking at results early (increases false positives)
+- Testing too many variations simultaneously
+- Insufficient sample size (underpowered tests)
+- Not accounting for business costs
+- Ignoring practical significance vs statistical significance
+
+---
+
+# Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.width = 12, fig.height = 8, fig.align = 'center')
+```
+
+```{r libraries}
+library(tidyverse)
+library(lubridate)
+library(here)
+library(scales)
+library(knitr)
+library(kableExtra)
+library(pwr)          # Power analysis
+library(broom)        # Tidy statistical output
+```
+
+---
+
+# Data Loading
+```{r load-data}
+# Load churn predictions with risk scores
+churn_data <- read_csv(here("data", "processed", "churn_predictions.csv"))
+
+# Load customer transaction data
+transactions <- read_csv(here("data", "processed", "retail_customers_only.csv"))
+
+cat("Data loaded:\n")
+cat("  Customers with churn scores:", nrow(churn_data), "\n")
+cat("  Total transactions:", nrow(transactions), "\n")
+```
+
+---
+
+# Test Design
+
+## Define Test Parameters
+```{r test-parameters}
+# Test configuration
+set.seed(42)  # For reproducibility
+
+# Define test parameters
+test_config <- list(
+  sample_size_per_group = 1000,
+  control_discount = 0.10,        # 10% discount
+  treatment_discount = 0.15,      # 15% discount
+  treatment_shipping = 15,        # £15 free shipping value
+  control_cost = 2,               # £2 email cost
+  treatment_cost = 7,             # £7 (£2 email + £5 premium)
+  test_duration_days = 14,
+  significance_level = 0.05,      # 5% alpha
+  minimum_detectable_effect = 0.03  # 3% conversion lift
+)
+
+cat("A/B Test Configuration:\n")
+cat("  Sample size per group:", test_config$sample_size_per_group, "\n")
+cat("  Control: ", percent(test_config$control_discount), " discount\n", sep = "")
+cat("  Treatment:", percent(test_config$treatment_discount), " discount + £", 
+    test_config$treatment_shipping, " free shipping\n", sep = "")
+cat("  Significance level:", percent(test_config$significance_level), "\n")
+cat("  Minimum detectable effect:", percent(test_config$minimum_detectable_effect), "\n\n")
+```
+
+## Select Test Audience
+```{r select-audience}
+# Target high and medium risk customers for the campaign
+eligible_customers <- churn_data %>%
+  filter(Risk_Category %in% c("High Risk", "Medium Risk")) %>%
+  arrange(desc(Churn_Probability))
+
+cat("Eligible customers for test:", nrow(eligible_customers), "\n\n")
+
+# Check if we have enough customers
+required_total <- test_config$sample_size_per_group * 2
+
+if(nrow(eligible_customers) < required_total) {
+  cat("⚠️  WARNING: Not enough eligible customers\n")
+  cat("  Required:", required_total, "\n")
+  cat("  Available:", nrow(eligible_customers), "\n\n")
+  
+  # Adjust sample size
+  test_config$sample_size_per_group <- floor(nrow(eligible_customers) / 2)
+  cat("  Adjusted sample size per group:", test_config$sample_size_per_group, "\n\n")
+}
+```
+
+## Random Assignment
+```{r random-assignment}
+# Randomly assign customers to control (A) or treatment (B)
+test_sample <- eligible_customers %>%
+  slice_head(n = test_config$sample_size_per_group * 2) %>%
+  mutate(
+    # Random assignment with 50/50 split
+    Group = sample(rep(c("Control", "Treatment"), each = test_config$sample_size_per_group)),
+    Group_Label = ifelse(Group == "Control", 
+                         "A: Standard (10% off)", 
+                         "B: Personalized (15% off + free shipping)")
+  )
+
+# Verify randomization balance
+randomization_check <- test_sample %>%
+  group_by(Group) %>%
+  summarize(
+    N = n(),
+    Avg_Churn_Prob = mean(Churn_Probability),
+    Avg_Historical_Spend = mean(Hist_TotalSpent),
+    Avg_Transactions = mean(Hist_TotalTransactions),
+    Avg_Recency = mean(Hist_RecencyDays),
+    .groups = "drop"
+  )
+
+cat("Randomization Check (groups should be balanced):\n\n")
+randomization_check %>%
+  mutate(
+    Avg_Churn_Prob = percent(Avg_Churn_Prob, accuracy = 0.1),
+    Avg_Historical_Spend = dollar(Avg_Historical_Spend, prefix = "£"),
+    Avg_Transactions = round(Avg_Transactions, 1),
+    Avg_Recency = round(Avg_Recency, 1)
+  ) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+---
+
+# Simulate Campaign Results
+```{r simulate-results}
+cat("\nSimulating customer responses based on historical behavior...\n")
+
+# Simulate conversion probability based on customer characteristics
+# More engaged customers (lower recency, higher spend) respond better
+test_results <- test_sample %>%
+  mutate(
+    # Base conversion probability (function of churn risk and past behavior)
+    Base_Conversion_Prob = plogis(
+      -2.5 +                                    # Baseline (low conversion for at-risk)
+      -0.5 * scale(Hist_RecencyDays)[,1] +      # Recent customers more likely
+      0.3 * scale(log1p(Hist_TotalSpent))[,1] + # High spenders more likely
+      0.2 * scale(Hist_TotalTransactions)[,1] - # Frequent buyers more likely
+      1.0 * Churn_Probability                   # High churn risk = lower conversion
+    ),
+    
+    # Treatment effect: personalized offer increases conversion by 30-50%
+    Treatment_Lift = ifelse(Group == "Treatment", 
+                            runif(n(), 0.30, 0.50),  # 30-50% relative lift
+                            0),
+    
+    # Final conversion probability
+    Conversion_Prob = pmin(Base_Conversion_Prob * (1 + Treatment_Lift), 0.95),
+    
+    # Simulate actual conversion (1 = purchased, 0 = did not purchase)
+    Converted = rbinom(n(), 1, Conversion_Prob),
+    
+    # Simulate purchase value for those who converted
+    # Based on historical AOV with some randomness
+    Purchase_Value = ifelse(Converted == 1,
+                           pmax(rnorm(n(), 
+                                     mean = Hist_AOV * (1 - ifelse(Group == "Control", 
+                                                                   test_config$control_discount,
+                                                                   test_config$treatment_discount)),
+                                     sd = Hist_AOV * 0.3), 
+                               10),  # Minimum £10 purchase
+                           0),
+    
+    # Calculate campaign costs
+    Campaign_Cost = ifelse(Group == "Control", 
+                          test_config$control_cost,
+                          test_config$treatment_cost),
+    
+    # Calculate net revenue (revenue minus cost)
+    Net_Revenue = Purchase_Value - Campaign_Cost
+  )
+
+cat("✓ Campaign simulation complete\n\n")
+```
+
+---
+
+# Results Analysis
+
+## Conversion Rate Comparison
+```{r conversion-analysis}
+# Calculate conversion rates by group
+conversion_summary <- test_results %>%
+  group_by(Group, Group_Label) %>%
+  summarize(
+    N = n(),
+    Conversions = sum(Converted),
+    Conversion_Rate = mean(Converted),
+    Std_Error = sqrt(Conversion_Rate * (1 - Conversion_Rate) / N),
+    CI_Lower = Conversion_Rate - 1.96 * Std_Error,
+    CI_Upper = Conversion_Rate + 1.96 * Std_Error,
+    .groups = "drop"
+  )
+
+cat("CONVERSION RATE RESULTS:\n\n")
+conversion_summary %>%
+  mutate(
+    Conversion_Rate = percent(Conversion_Rate, accuracy = 0.1),
+    CI_Lower = percent(CI_Lower, accuracy = 0.1),
+    CI_Upper = percent(CI_Upper, accuracy = 0.1)
+  ) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+# Calculate absolute and relative lift
+control_rate <- conversion_summary$Conversion_Rate[conversion_summary$Group == "Control"]
+treatment_rate <- conversion_summary$Conversion_Rate[conversion_summary$Group == "Treatment"]
+
+absolute_lift <- treatment_rate - control_rate
+relative_lift <- (treatment_rate - control_rate) / control_rate
+
+cat("\n📊 LIFT ANALYSIS:\n")
+cat("  Absolute Lift:", percent(absolute_lift, accuracy = 0.1), "\n")
+cat("  Relative Lift:", percent(relative_lift, accuracy = 0.1), "\n\n")
+```
+```{r conversion-viz, fig.width=10, fig.height=6}
+# Visualize conversion rates with confidence intervals
+ggplot(conversion_summary, aes(x = Group_Label, y = Conversion_Rate, fill = Group)) +
+  geom_col(alpha = 0.8, width = 0.6) +
+  geom_errorbar(aes(ymin = CI_Lower, ymax = CI_Upper), 
+                width = 0.2, size = 1, color = "black") +
+  geom_text(aes(label = percent(Conversion_Rate, accuracy = 0.1)),
+            vjust = -6.5, size = 5, fontface = "bold") +
+  scale_fill_manual(values = c("Control" = "#3498db", "Treatment" = "#2ecc71")) +
+  scale_y_continuous(labels = percent_format(), limits = c(0, max(conversion_summary$CI_Upper) * 1.2)) +
+  labs(
+    title = "A/B Test Results: Conversion Rate by Group",
+    subtitle = "Error bars show 95% confidence intervals",
+    x = "",
+    y = "Conversion Rate",
+    fill = "Group"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    legend.position = "none",
+    axis.text.x = element_text(size = 11)
+  )
+```
+
+## Statistical Significance Testing
+```{r statistical-testing}
+cat("\n=== STATISTICAL SIGNIFICANCE TEST ===\n\n")
+
+# Two-proportion z-test
+control_conversions <- sum(test_results$Converted[test_results$Group == "Control"])
+control_n <- sum(test_results$Group == "Control")
+
+treatment_conversions <- sum(test_results$Converted[test_results$Group == "Treatment"])
+treatment_n <- sum(test_results$Group == "Treatment")
+
+# Perform proportion test
+prop_test <- prop.test(
+  x = c(control_conversions, treatment_conversions),
+  n = c(control_n, treatment_n),
+  alternative = "two.sided",
+  conf.level = 0.95
+)
+
+cat("Two-Proportion Z-Test:\n\n")
+cat("  Control: ", control_conversions, "/", control_n, " (", 
+    percent(control_conversions/control_n, accuracy = 0.1), ")\n", sep = "")
+cat("  Treatment:", treatment_conversions, "/", treatment_n, " (", 
+    percent(treatment_conversions/treatment_n, accuracy = 0.1), ")\n\n", sep = "")
+
+cat("  Test Statistic:", round(sqrt(prop_test$statistic), 3), "\n")
+cat("  P-value:", format.pval(prop_test$p.value, digits = 4), "\n")
+cat("  95% CI for difference:", 
+    percent(prop_test$conf.int[1], accuracy = 0.1), " to ", 
+    percent(prop_test$conf.int[2], accuracy = 0.1), "\n\n", sep = "")
+
+# Interpretation
+if(prop_test$p.value < test_config$significance_level) {
+  cat("✅ RESULT: STATISTICALLY SIGNIFICANT\n")
+  cat("   The difference in conversion rates is statistically significant at α = ", 
+      test_config$significance_level, "\n", sep = "")
+  cat("   We can reject the null hypothesis that both groups have equal conversion rates.\n\n")
+} else {
+  cat("❌ RESULT: NOT STATISTICALLY SIGNIFICANT\n")
+  cat("   The difference in conversion rates is NOT statistically significant at α = ", 
+      test_config$significance_level, "\n", sep = "")
+  cat("   We cannot reject the null hypothesis that both groups have equal conversion rates.\n\n")
+}
+```
+
+## Revenue Analysis
+```{r revenue-analysis}
+# Calculate revenue metrics by group
+revenue_summary <- test_results %>%
+  group_by(Group, Group_Label) %>%
+  summarize(
+    N = n(),
+    Total_Revenue = sum(Purchase_Value),
+    Total_Cost = sum(Campaign_Cost),
+    Net_Revenue = sum(Net_Revenue),
+    Avg_Revenue_Per_Customer = mean(Purchase_Value),
+    Avg_Net_Revenue_Per_Customer = mean(Net_Revenue),
+    ROI = (Total_Revenue - Total_Cost) / Total_Cost,
+    .groups = "drop"
+  )
+
+cat("\nREVENUE ANALYSIS:\n\n")
+revenue_summary %>%
+  mutate(
+    Total_Revenue = dollar(Total_Revenue, prefix = "£"),
+    Total_Cost = dollar(Total_Cost, prefix = "£"),
+    Net_Revenue = dollar(Net_Revenue, prefix = "£"),
+    Avg_Revenue_Per_Customer = dollar(Avg_Revenue_Per_Customer, prefix = "£"),
+    Avg_Net_Revenue_Per_Customer = dollar(Avg_Net_Revenue_Per_Customer, prefix = "£"),
+    ROI = percent(ROI, accuracy = 0.1)
+  ) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+# Calculate incremental revenue
+control_net <- revenue_summary$Net_Revenue[revenue_summary$Group == "Control"]
+treatment_net <- revenue_summary$Net_Revenue[revenue_summary$Group == "Treatment"]
+incremental_revenue <- treatment_net - control_net
+incremental_per_customer <- incremental_revenue / test_config$sample_size_per_group
+
+cat("\n💰 INCREMENTAL IMPACT:\n")
+cat("  Incremental net revenue:", dollar(incremental_revenue, prefix = "£"), "\n")
+cat("  Per customer:", dollar(incremental_per_customer, prefix = "£"), "\n\n")
+```
+```{r revenue-viz, fig.width=12, fig.height=6}
+# Visualize revenue comparison
+revenue_long <- revenue_summary %>%
+  select(Group_Label, Total_Revenue, Total_Cost, Net_Revenue) %>%
+  pivot_longer(cols = c(Total_Revenue, Total_Cost, Net_Revenue),
+               names_to = "Metric",
+               values_to = "Amount") %>%
+  mutate(
+    Metric = factor(Metric, 
+                   levels = c("Total_Revenue", "Total_Cost", "Net_Revenue"),
+                   labels = c("Total Revenue", "Campaign Cost", "Net Revenue"))
+  )
+
+ggplot(revenue_long, aes(x = Group_Label, y = Amount, fill = Metric)) +
+  geom_col(position = "dodge", alpha = 0.8) +
+  geom_text(aes(label = dollar(Amount, prefix = "£", accuracy = 1)),
+            position = position_dodge(width = 0.9),
+            vjust = -0.5, size = 3.5) +
+  scale_fill_manual(values = c("Total Revenue" = "#2ecc71", 
+                                "Campaign Cost" = "#e74c3c",
+                                "Net Revenue" = "#3498db")) +
+  scale_y_continuous(labels = dollar_format(prefix = "£")) +
+  labs(
+    title = "Revenue Analysis by Test Group",
+    subtitle = "Comparison of revenue, costs, and net profitability",
+    x = "",
+    y = "Amount (£)",
+    fill = ""
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    legend.position = "top"
+  )
+```
+
+---
+
+# Power Analysis
+
+## Was the Test Adequately Powered?
+```{r power-analysis}
+cat("\n=== POWER ANALYSIS ===\n\n")
+
+# Calculate actual effect size (Cohen's h for proportions)
+effect_size <- ES.h(treatment_rate, control_rate)
+
+cat("Observed Effect Size (Cohen's h):", round(effect_size, 3), "\n\n")
+
+# Post-hoc power analysis
+actual_power <- pwr.2p.test(
+  h = effect_size,
+  n = test_config$sample_size_per_group,
+  sig.level = test_config$significance_level,
+  alternative = "two.sided"
+)
+
+cat("Post-hoc Power Calculation:\n")
+cat("  Sample size per group:", test_config$sample_size_per_group, "\n")
+cat("  Observed effect size:", round(effect_size, 3), "\n")
+cat("  Significance level:", test_config$significance_level, "\n")
+cat("  Statistical power:", percent(actual_power$power, accuracy = 0.1), "\n\n")
+
+# Interpretation
+if(actual_power$power >= 0.80) {
+  cat("✅ The test had adequate power (≥80%) to detect this effect size.\n\n")
+} else {
+  cat("⚠️  The test was underpowered (<80%) to reliably detect this effect size.\n")
+  cat("   Consider increasing sample size in future tests.\n\n")
+}
+
+# Sample size recommendation for future tests
+recommended_power <- pwr.2p.test(
+  h = test_config$minimum_detectable_effect,
+  power = 0.80,
+  sig.level = test_config$significance_level,
+  alternative = "two.sided"
+)
+
+cat("SAMPLE SIZE RECOMMENDATION:\n")
+cat("  To detect a", percent(test_config$minimum_detectable_effect), 
+    "effect with 80% power:\n")
+cat("  Recommended sample size per group:", ceiling(recommended_power$n), "\n\n")
+```
+
+---
+
+# Business Impact Projection
+```{r business-impact}
+cat("\n")
+cat(rep("=", 70), "\n")
+cat("               FULL ROLLOUT BUSINESS IMPACT\n")
+cat(rep("=", 70), "\n\n")
+
+# Total eligible population for rollout
+total_eligible <- sum(churn_data$Risk_Category %in% c("High Risk", "Medium Risk"))
+
+cat("ROLLOUT SCENARIO ANALYSIS:\n\n")
+cat("  Eligible customers for campaign:", comma(total_eligible), "\n\n")
+
+# Scenario 1: Roll out control to everyone
+control_revenue_per <- revenue_summary$Avg_Net_Revenue_Per_Customer[revenue_summary$Group == "Control"]
+control_total <- control_revenue_per * total_eligible
+control_cost_total <- test_config$control_cost * total_eligible
+
+cat("Scenario 1: Standard Campaign (10% discount)\n")
+cat("  Expected net revenue:", dollar(control_total, prefix = "£"), "\n")
+cat("  Total campaign cost:", dollar(control_cost_total, prefix = "£"), "\n")
+cat("  Net profit:", dollar(control_total, prefix = "£"), "\n\n")
+
+# Scenario 2: Roll out treatment to everyone
+treatment_revenue_per <- revenue_summary$Avg_Net_Revenue_Per_Customer[revenue_summary$Group == "Treatment"]
+treatment_total <- treatment_revenue_per * total_eligible
+treatment_cost_total <- test_config$treatment_cost * total_eligible
+
+cat("Scenario 2: Personalized Campaign (15% discount + free shipping)\n")
+cat("  Expected net revenue:", dollar(treatment_total, prefix = "£"), "\n")
+cat("  Total campaign cost:", dollar(treatment_cost_total, prefix = "£"), "\n")
+cat("  Net profit:", dollar(treatment_total, prefix = "£"), "\n\n")
+
+# Incremental benefit
+incremental_total <- treatment_total - control_total
+incremental_cost <- treatment_cost_total - control_cost_total
+incremental_roi <- (treatment_total - control_total) / incremental_cost
+
+cat("INCREMENTAL BENEFIT (Treatment vs Control):\n")
+cat("  Additional net revenue:", dollar(incremental_total, prefix = "£"), "\n")
+cat("  Additional cost:", dollar(incremental_cost, prefix = "£"), "\n")
+cat("  Incremental ROI:", percent(incremental_roi, accuracy = 0.1), "\n\n")
+
+# Recommendation
+if(incremental_roi > 1) {
+  cat("✅ RECOMMENDATION: ROLL OUT TREATMENT\n")
+  cat("   The personalized campaign generates", dollar(incremental_total, prefix = "£"),
+      "more net revenue.\n")
+  cat("   Every £1 spent on the premium campaign generates £", 
+      round(incremental_roi, 2), " in additional net revenue.\n\n")
+} else {
+  cat("⚠️  RECOMMENDATION: STICK WITH CONTROL\n")
+  cat("   The personalized campaign does not generate sufficient incremental revenue\n")
+  cat("   to justify the additional cost.\n\n")
+}
+
+cat(rep("=", 70), "\n\n")
+```
+
+---
+
+# Key Insights & Recommendations
+```{r recommendations}
+cat("KEY TAKEAWAYS FROM A/B TEST:\n")
+cat(rep("=", 70), "\n\n")
+
+cat("1. STATISTICAL SIGNIFICANCE\n")
+if(prop_test$p.value < test_config$significance_level) {
+  cat("   ✅ The treatment showed a statistically significant improvement\n")
+  cat("   ", percent(relative_lift, accuracy = 0.1), " relative increase in conversion rate\n\n", sep = "")
+} else {
+  cat("   ❌ Results were not statistically significant\n")
+  cat("   Cannot confidently attribute differences to the treatment\n\n")
+}
+
+cat("2. BUSINESS IMPACT\n")
+cat("   Net revenue per customer:\n")
+cat("     • Control: ", dollar(control_revenue_per, prefix = "£"), "\n", sep = "")
+cat("     • Treatment: ", dollar(treatment_revenue_per, prefix = "£"), "\n", sep = "")
+cat("   Full rollout to ", comma(total_eligible), " customers:\n", sep = "")
+cat("     • Additional profit: ", dollar(incremental_total, prefix = "£"), "\n\n", sep = "")
+
+cat("3. COST-BENEFIT ANALYSIS\n")
+cat("   Treatment costs £", test_config$treatment_cost - test_config$control_cost, 
+    " more per customer\n", sep = "")
+cat("   Incremental ROI: ", percent(incremental_roi, accuracy = 0.1), "\n", sep = "")
+if(incremental_roi > 1) {
+  cat("   ✅ Treatment is cost-effective\n\n")
+} else {
+  cat("   ❌ Treatment does not justify additional cost\n\n")
+}
+
+cat("4. TEST QUALITY\n")
+cat("   Statistical power: ", percent(actual_power$power, accuracy = 0.1), "\n", sep = "")
+if(actual_power$power >= 0.80) {
+  cat("   ✅ Test was adequately powered\n\n")
+} else {
+  cat("   ⚠️  Test was underpowered; results should be interpreted cautiously\n\n")
+}
+
+cat("RECOMMENDED NEXT STEPS:\n\n")
+cat("  1. ", ifelse(incremental_roi > 1, "Roll out treatment", "Stick with control"), 
+    " to all eligible customers\n", sep = "")
+cat("  2. Monitor actual performance against projected results\n")
+cat("  3. Test additional variations (e.g., 20% discount, product bundles)\n")
+cat("  4. Segment analysis: Does treatment work better for certain customer types?\n")
+cat("  5. Run follow-up test with larger sample if power was insufficient\n\n")
+
+cat(rep("=", 70), "\n\n")
+```
+
+---
+
+# Export Test Results
+```{r export-results}
+# Export detailed test results
+test_export <- test_results %>%
+  select(
+    CustomerID,
+    Group,
+    Group_Label,
+    Churn_Probability,
+    Risk_Category,
+    Converted,
+    Purchase_Value,
+    Campaign_Cost,
+    Net_Revenue,
+    Hist_TotalSpent,
+    Hist_TotalTransactions
+  )
+
+export_path <- here("data", "processed", "ab_test_results.csv")
+write_csv(test_export, export_path)
+
+cat("✓ A/B test results exported to:", export_path, "\n")
+cat("  Customers:", nrow(test_export), "\n\n")
+
+# Export summary statistics
+summary_export <- bind_rows(
+  conversion_summary %>% mutate(Metric_Type = "Conversion"),
+  revenue_summary %>% mutate(Metric_Type = "Revenue")
+)
+
+summary_path <- here("data", "processed", "ab_test_summary.csv")
+write_csv(summary_export, summary_path)
+
+cat("✓ Summary statistics exported to:", summary_path, "\n\n")
+```
+
+---
+
+# A/B Testing Best Practices
+```{r best-practices}
+cat("\n📚 A/B TESTING BEST PRACTICES CHECKLIST:\n\n")
+
+checklist <- data.frame(
+  Practice = c(
+    "Clear hypothesis defined",
+    "Success metrics identified upfront",
+    "Proper randomization",
+    "Adequate sample size",
+    "Statistical testing performed",
+    "Cost-benefit analysis included",
+    "Practical vs statistical significance",
+    "Results documented and actionable"
+  ),
+  Status = c(
+    "✅",
+    "✅",
+    "✅",
+    ifelse(actual_power$power >= 0.80, "✅", "⚠️"),
+    "✅",
+    "✅",
+    "✅",
+    "✅"
+  ),
+  Notes = c(
+    "Personalized email will increase conversions",
+    "Conversion rate, revenue per customer",
+    "Random 50/50 split, groups balanced",
+    paste0("Power = ", percent(actual_power$power, accuracy = 0.1)),
+    "Two-proportion z-test",
+    "ROI calculated and evaluated",
+    "Both considered in recommendation",
+    "Clear recommendations provided"
+  ),
+  stringsAsFactors = FALSE
+)
+
+kable(checklist, format = "html") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+cat("\n\n💡 COMMON A/B TESTING MISTAKES TO AVOID:\n\n")
+cat("  ❌ Peeking at results before test completion (inflates false positives)\n")
+cat("  ❌ Running too many simultaneous tests (splits audience, reduces power)\n")
+cat("  ❌ Not accounting for seasonality or external factors\n")
+cat("  ❌ Stopping test early when results look good (regression to mean)\n")
+cat("  ❌ Ignoring practical significance (statistical ≠ business important)\n")
+cat("  ❌ Not considering long-term effects (customer lifetime value impact)\n")
+cat("  ❌ Failing to document learnings for future tests\n\n")
+```
+
+---
+
+# Session Information
+```{r session-info}
+sessionInfo()
+```
+
+---
+
+**✅ A/B Testing Analysis Complete!**
+
+*This framework enables data-driven marketing decisions with proper statistical rigor.*
+
