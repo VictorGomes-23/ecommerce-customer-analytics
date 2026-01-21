@@ -1,5 +1,733 @@
 ---
-title: "07_churn_prediction"
-output: html_document
+title: "Customer Churn Prediction Model"
+author: "Victor Gomes"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+    theme: flatly
+    highlight: tango
 ---
 
+# Executive Summary
+
+This analysis builds a predictive model to identify customers at risk of churning, enabling proactive retention efforts.
+
+**Objectives:**
+- Define and measure customer churn
+- Build predictive model using behavioral features
+- Identify high-risk customers for intervention
+- Quantify revenue at risk from churn
+- Provide targeted retention recommendations
+
+---
+
+# Introduction to Churn Prediction
+
+## What is Customer Churn?
+
+**Churn:** When a customer stops purchasing from the business.
+
+**Churn Definition (for this analysis):**
+- Customer has not purchased in 180+ days after prediction point
+- Based on temporal validation approach
+
+## Why Predict Churn?
+
+**Proactive Retention:**
+- Identify at-risk customers before they leave
+- Intervene with targeted campaigns
+- More cost-effective than re-acquisition
+
+**Business Impact:**
+- Reduce customer attrition by 15-25%
+- Increase customer lifetime value
+- Optimize retention budget allocation
+- Improve forecasting accuracy
+
+## Predictive Approach
+
+**Model:** Logistic Regression (interpretable, proven effective)
+
+**Features:** Behavioral indicators from historical data only
+- Recency (days since last purchase at prediction point)
+- Frequency (purchase count)
+- Monetary (total spend)
+- Trends (increasing/decreasing activity)
+- Engagement patterns
+
+**Temporal Validation:** Features calculated from past data, churn measured in future period
+
+---
+
+# Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.width = 12, fig.height = 8, fig.align = 'center')
+```
+
+```{r libraries}
+library(tidyverse)
+library(lubridate)
+library(here)
+library(scales)
+library(knitr)
+library(kableExtra)
+library(viridis)
+library(caret)       # Machine learning
+library(pROC)        # ROC curves
+library(ROCR)        # Additional ROC functions
+```
+
+---
+
+# Data Loading
+```{r load-data}
+# Load transaction data
+transactions <- read_csv(here("data", "processed", "retail_customers_only.csv"))
+
+cat("Data loaded:\n")
+cat("  Transactions:", nrow(transactions), "\n")
+cat("  Unique Customers:", n_distinct(transactions$CustomerID), "\n")
+```
+
+---
+
+# Define Temporal Split
+```{r temporal-split}
+# Define prediction point (90 days before dataset end)
+analysis_date <- max(transactions$InvoiceDate)
+prediction_point <- analysis_date - days(90)
+churn_window <- 180  # Days of inactivity = churn
+
+cat("\nTemporal Split Configuration:\n")
+cat("  Analysis Date:", as.character(analysis_date), "\n")
+cat("  Prediction Point:", as.character(prediction_point), "\n")
+cat("  Churn Window:", churn_window, "days\n\n")
+
+# Split data into historical and observation periods
+historical_transactions <- transactions %>%
+  filter(InvoiceDate <= prediction_point)
+
+observation_transactions <- transactions %>%
+  filter(InvoiceDate > prediction_point & InvoiceDate <= prediction_point + days(churn_window))
+
+cat("Data Split:\n")
+cat("  Historical transactions:", nrow(historical_transactions), "\n")
+cat("  Observation transactions:", nrow(observation_transactions), "\n")
+```
+
+---
+
+# Feature Engineering
+
+Create predictive features from historical data only (no data leakage).
+```{r feature-engineering}
+cat("\nCalculating customer features from historical data...\n")
+
+# Basic customer metrics from historical period
+customer_features <- historical_transactions %>%
+  filter(!IsReturn) %>%
+  group_by(CustomerID) %>%
+  summarize(
+    # Transaction metrics
+    Hist_TotalTransactions = n_distinct(InvoiceNo),
+    Hist_TotalSpent = sum(TotalAmount),
+    Hist_TotalItems = sum(Quantity),
+    Hist_AOV = mean(TotalAmount),
+    
+    # Temporal metrics
+    Hist_FirstPurchase = min(InvoiceDate),
+    Hist_LastPurchase = max(InvoiceDate),
+    Hist_CustomerLifetimeDays = as.numeric(difftime(max(InvoiceDate), min(InvoiceDate), units = "days")),
+    
+    # Frequency metrics
+    Hist_AvgDaysBetweenPurchases = as.numeric(difftime(max(InvoiceDate), min(InvoiceDate), units = "days")) / 
+                                   pmax(n_distinct(InvoiceNo) - 1, 1),
+    
+    .groups = "drop"
+  ) %>%
+  mutate(
+    # Recency at prediction point
+    Hist_RecencyDays = as.numeric(difftime(prediction_point, Hist_LastPurchase, units = "days")),
+    
+    # Purchase frequency
+    Hist_PurchaseFrequency = Hist_TotalTransactions / pmax(Hist_CustomerLifetimeDays / 30, 1)
+  )
+
+# Calculate temporal trends
+customer_trends <- historical_transactions %>%
+  filter(!IsReturn) %>%
+  mutate(PurchaseMonth = floor_date(InvoiceDate, "month")) %>%
+  group_by(CustomerID, PurchaseMonth) %>%
+  summarize(
+    Monthly_Transactions = n_distinct(InvoiceNo),
+    Monthly_Spend = sum(TotalAmount),
+    .groups = "drop"
+  ) %>%
+  group_by(CustomerID) %>%
+  summarize(
+    # Activity consistency
+    Months_Active = n(),
+    Avg_Monthly_Spend = mean(Monthly_Spend),
+    Std_Monthly_Spend = sd(Monthly_Spend, na.rm = TRUE),
+    
+    # Recent vs historical comparison (last 3 months vs earlier)
+    Recent_3Mo_Spend = sum(Monthly_Spend[PurchaseMonth >= prediction_point - months(3)]),
+    Historical_Spend = sum(Monthly_Spend[PurchaseMonth < prediction_point - months(3)]),
+    
+    .groups = "drop"
+  ) %>%
+  mutate(
+    # Spending trend
+    Spend_Trend = ifelse(Historical_Spend > 0, 
+                         (Recent_3Mo_Spend / Historical_Spend) - 1, 0),
+    Spend_Trend = pmin(pmax(Spend_Trend, -1), 3),
+    
+    # Spending volatility
+    Spend_Volatility = ifelse(!is.na(Std_Monthly_Spend), Std_Monthly_Spend, 0)
+  )
+
+# Combine all features
+model_data <- customer_features %>%
+  left_join(customer_trends, by = "CustomerID") %>%
+  mutate(
+    # Handle NAs
+    across(c(Months_Active, Avg_Monthly_Spend, Spend_Trend, Spend_Volatility), ~replace_na(., 0)),
+    
+    # Normalized features
+    Recency_Normalized = log1p(Hist_RecencyDays),
+    Frequency_Normalized = log1p(Hist_TotalTransactions),
+    Monetary_Normalized = log1p(Hist_TotalSpent),
+    AOV_Normalized = log1p(Hist_AOV),
+    
+    # Interaction features
+    Recency_Frequency_Ratio = Hist_RecencyDays / pmax(Hist_AvgDaysBetweenPurchases, 1),
+    Spend_per_Transaction = Hist_TotalSpent / pmax(Hist_TotalTransactions, 1)
+  )
+
+cat("\nFeature Engineering Complete\n")
+cat("  Total features:", ncol(model_data), "\n")
+cat("  Customers:", nrow(model_data), "\n")
+```
+
+---
+
+# Define Churn Labels
+```{r define-churn}
+cat("Defining churn labels from observation period...\n")
+
+# Identify customers who made purchases in observation period
+active_customers <- observation_transactions %>%
+  filter(!IsReturn) %>%
+  group_by(CustomerID) %>%
+  summarize(Had_Purchase = TRUE, .groups = "drop")
+
+# Add churn labels
+model_data <- model_data %>%
+  left_join(active_customers, by = "CustomerID") %>%
+  mutate(
+    Churned = is.na(Had_Purchase),
+    Churn_Label = ifelse(Churned, "Churned", "Active"),
+    Churn_Binary = as.integer(Churned)
+  ) %>%
+  select(-Had_Purchase, -Hist_FirstPurchase, -Hist_LastPurchase) %>%
+  filter(!is.na(Hist_TotalTransactions), Hist_TotalTransactions > 0)
+
+# Churn summary
+churn_summary <- model_data %>%
+  count(Churn_Label) %>%
+  mutate(Percentage = round(n / sum(n) * 100, 1))
+
+cat("\nChurn Distribution:\n")
+churn_summary %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+cat("\nChurn Rate:", churn_summary$Percentage[churn_summary$Churn_Label == "Churned"], "%\n")
+```
+
+---
+
+# Exploratory Analysis: Churned vs Active
+```{r churn-comparison}
+# Compare key metrics between churned and active
+comparison <- model_data %>%
+  group_by(Churn_Label) %>%
+  summarize(
+    Customers = n(),
+    Avg_Recency = round(mean(Hist_RecencyDays), 1),
+    Avg_Frequency = round(mean(Hist_TotalTransactions), 1),
+    Avg_Monetary = round(mean(Hist_TotalSpent), 2),
+    Avg_AOV = round(mean(Hist_AOV), 2),
+    Avg_Lifetime_Days = round(mean(Hist_CustomerLifetimeDays), 0),
+    .groups = "drop"
+  )
+
+comparison %>%
+  mutate(
+    Avg_Monetary = dollar(Avg_Monetary, prefix = "£"),
+    Avg_AOV = dollar(Avg_AOV, prefix = "£")
+  ) %>%
+  kable(caption = "Churned vs Active Customer Comparison") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+
+```{r churn-viz, fig.width=12, fig.height=6}
+# Visualize key differences with log transformation
+behavioral_comparison <- model_data %>%
+  select(CustomerID, Churn_Label, Hist_RecencyDays, Hist_TotalSpent, Hist_TotalTransactions) %>%
+  mutate(
+    Status = Churn_Label,
+    TotalSpent_Log = log10(Hist_TotalSpent + 1),
+    TotalTransactions_Log = log10(Hist_TotalTransactions + 1)
+  ) %>%
+  select(Status, Hist_RecencyDays, TotalSpent_Log, TotalTransactions_Log) %>%
+  pivot_longer(
+    cols = c(Hist_RecencyDays, TotalSpent_Log, TotalTransactions_Log),
+    names_to = "Metric",
+    values_to = "Value"
+  ) %>%
+  mutate(
+    Metric = case_when(
+      Metric == "Hist_RecencyDays" ~ "Recency (Days Since Last Purchase)",
+      Metric == "TotalSpent_Log" ~ "Total Spent (log10)",
+      Metric == "TotalTransactions_Log" ~ "Total Transactions (log10)"
+    ),
+    Metric = factor(Metric, levels = c("Recency (Days Since Last Purchase)", 
+                                       "Total Spent (log10)", 
+                                       "Total Transactions (log10)"))
+  )
+
+ggplot(behavioral_comparison, aes(x = Status, y = Value, fill = Status)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7) +
+  coord_cartesian(ylim = c(0, NA)) +
+  facet_wrap(~Metric, scales = "free_y", ncol = 3) +
+  scale_fill_manual(values = c("Active" = "#2E7D32", "Churned" = "#D32F2F")) +
+  labs(
+    title = "Behavioral Differences: Active vs Churned Customers",
+    subtitle = "Features calculated from historical period only (no data leakage)",
+    x = NULL,
+    y = "Value",
+    fill = "Status"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    legend.position = "bottom"
+  )
+```
+
+---
+
+# Train/Test Split
+```{r train-test-split}
+set.seed(123)  # Reproducibility
+
+# Create training and test sets (70/30 split)
+train_index <- createDataPartition(model_data$Churned, p = 0.7, list = FALSE)
+
+train_data <- model_data[train_index, ]
+test_data <- model_data[-train_index, ]
+
+cat("\nData Split:\n")
+cat("  Training set:", nrow(train_data), "customers\n")
+cat("  Test set:", nrow(test_data), "customers\n")
+cat("  Training churn rate:", 
+    round(sum(train_data$Churned) / nrow(train_data) * 100, 1), "%\n")
+cat("  Test churn rate:", 
+    round(sum(test_data$Churned) / nrow(test_data) * 100, 1), "%\n")
+```
+
+---
+
+# Logistic Regression Model
+```{r logistic-model}
+# Build logistic regression model with historical features only
+model_formula <- as.formula(
+  Churned ~ Recency_Normalized + Frequency_Normalized + Monetary_Normalized +
+    AOV_Normalized + Spend_Trend + Spend_Volatility + Months_Active +
+    Recency_Frequency_Ratio + Spend_per_Transaction
+)
+
+logistic_model <- glm(model_formula, 
+                      data = train_data, 
+                      family = binomial(link = "logit"))
+
+# Model summary
+cat("\nLogistic Regression Model Summary:\n\n")
+summary(logistic_model)
+
+# Feature importance
+feature_importance <- data.frame(
+  Feature = names(coef(logistic_model))[-1],
+  Coefficient = coef(logistic_model)[-1],
+  Abs_Coefficient = abs(coef(logistic_model)[-1])
+) %>%
+  arrange(desc(Abs_Coefficient))
+
+cat("\n\nFeature Importance (by coefficient magnitude):\n\n")
+feature_importance %>%
+  mutate(
+    Coefficient = round(Coefficient, 4),
+    Abs_Coefficient = round(Abs_Coefficient, 4)
+  ) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+
+```{r feature-importance-viz, fig.width=12, fig.height=6}
+# Visualize feature importance
+ggplot(feature_importance, aes(x = reorder(Feature, Abs_Coefficient), y = Coefficient)) +
+  geom_col(aes(fill = Coefficient > 0), alpha = 0.8) +
+  coord_flip() +
+  scale_fill_manual(values = c("TRUE" = "#D32F2F", "FALSE" = "#2E7D32"),
+                    labels = c("Increases Churn Risk", "Decreases Churn Risk")) +
+  labs(
+    title = "Feature Importance in Churn Prediction",
+    subtitle = "Logistic regression coefficients",
+    x = "Feature",
+    y = "Coefficient",
+    fill = "Effect"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold", size = 14))
+```
+
+---
+
+# Model Predictions
+```{r predictions}
+# Predict on test set
+test_data$Churn_Probability <- predict(logistic_model, newdata = test_data, type = "response")
+test_data$Churn_Prediction <- ifelse(test_data$Churn_Probability > 0.5, TRUE, FALSE)
+
+# Predict on full dataset for business use
+model_data$Churn_Probability <- predict(logistic_model, newdata = model_data, type = "response")
+model_data$Churn_Prediction <- ifelse(model_data$Churn_Probability > 0.5, TRUE, FALSE)
+model_data$Risk_Category <- cut(model_data$Churn_Probability, 
+                                 breaks = c(0, 0.25, 0.5, 0.75, 1),
+                                 labels = c("Low Risk", "Medium Risk", "High Risk", "Critical Risk"),
+                                 include.lowest = TRUE)
+
+cat("\nPredictions Complete\n")
+cat("  Average churn probability:", 
+    round(mean(model_data$Churn_Probability) * 100, 1), "%\n")
+```
+
+---
+
+# Model Evaluation
+```{r confusion-matrix}
+# Confusion matrix
+conf_matrix <- confusionMatrix(
+  factor(test_data$Churn_Prediction, levels = c(FALSE, TRUE)),
+  factor(test_data$Churned, levels = c(FALSE, TRUE)),
+  positive = "TRUE"
+)
+
+cat("\nConfusion Matrix:\n\n")
+print(conf_matrix$table)
+
+cat("\n\nModel Performance Metrics:\n")
+cat("  Accuracy:", round(conf_matrix$overall['Accuracy'] * 100, 1), "%\n")
+cat("  Sensitivity (Recall):", round(conf_matrix$byClass['Sensitivity'] * 100, 1), "%\n")
+cat("  Specificity:", round(conf_matrix$byClass['Specificity'] * 100, 1), "%\n")
+cat("  Precision:", round(conf_matrix$byClass['Precision'] * 100, 1), "%\n")
+cat("  F1 Score:", round(conf_matrix$byClass['F1'] * 100, 1), "%\n")
+```
+
+## ROC Curve
+```{r roc-curve, fig.width=10, fig.height=8}
+# ROC curve
+roc_obj <- roc(test_data$Churned, test_data$Churn_Probability)
+auc_value <- auc(roc_obj)
+
+# Plot ROC
+plot(roc_obj, 
+     main = paste0("ROC Curve (AUC = ", round(auc_value, 3), ")"),
+     col = "#1976D2", 
+     lwd = 2,
+     print.auc = TRUE,
+     print.auc.y = 0.4)
+abline(a = 0, b = 1, lty = 2, col = "gray")
+
+cat("\nAUC (Area Under Curve):", round(auc_value, 3), "\n")
+cat("Interpretation:", ifelse(auc_value > 0.8, "Excellent", 
+                              ifelse(auc_value > 0.7, "Good", "Fair")), "\n")
+```
+
+---
+
+# Risk Segmentation
+```{r risk-segments}
+# Analyze risk categories
+risk_summary <- model_data %>%
+  group_by(Risk_Category) %>%
+  summarize(
+    Customers = n(),
+    Pct_Customers = round(n() / nrow(model_data) * 100, 1),
+    Avg_Churn_Prob = round(mean(Churn_Probability) * 100, 1),
+    Actual_Churned = sum(Churned),
+    Actual_Churn_Rate = round(sum(Churned) / n() * 100, 1),
+    Total_Revenue_at_Risk = sum(Hist_TotalSpent),
+    Avg_CLV = mean(Hist_TotalSpent),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(Avg_Churn_Prob))
+
+risk_summary %>%
+  mutate(
+    Total_Revenue_at_Risk = dollar(Total_Revenue_at_Risk, prefix = "£"),
+    Avg_CLV = dollar(Avg_CLV, prefix = "£")
+  ) %>%
+  kable(caption = "Churn Risk Segmentation") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+
+```{r risk-viz, fig.width=12, fig.height=7}
+# Visualize risk distribution
+ggplot(model_data, aes(x = Churn_Probability, fill = Risk_Category)) +
+  geom_histogram(bins = 50, alpha = 0.8) +
+  geom_vline(xintercept = 0.5, linetype = "dashed", color = "black", linewidth = 1) +
+  scale_fill_manual(values = c("Low Risk" = "#2E7D32", "Medium Risk" = "#F57C00",
+                                "High Risk" = "#D32F2F", "Critical Risk" = "#7B1FA2")) +
+  labs(
+    title = "Distribution of Churn Probability Scores",
+    subtitle = "Vertical line shows 50% threshold for churn prediction",
+    x = "Churn Probability",
+    y = "Number of Customers",
+    fill = "Risk Category"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold", size = 14))
+```
+
+---
+
+# High-Risk Customer Analysis
+```{r high-risk-analysis}
+# Focus on high and critical risk customers
+high_risk <- model_data %>%
+  filter(Risk_Category %in% c("High Risk", "Critical Risk"))
+
+cat("\nHIGH-RISK CUSTOMER ANALYSIS\n")
+cat(rep("=", 70), "\n\n")
+
+cat("High/Critical Risk Customers:", nrow(high_risk), "\n")
+cat("Percentage of base:", round(nrow(high_risk) / nrow(model_data) * 100, 1), "%\n")
+cat("Revenue at risk:", dollar(sum(high_risk$Hist_TotalSpent), prefix = "£"), "\n")
+cat("Average customer value:", dollar(mean(high_risk$Hist_TotalSpent), prefix = "£"), "\n\n")
+
+# Characteristics of high-risk customers
+cat("Behavioral Characteristics:\n")
+cat("  Avg days since last purchase:", round(mean(high_risk$Hist_RecencyDays), 1), "\n")
+cat("  Avg lifetime purchases:", round(mean(high_risk$Hist_TotalTransactions), 1), "\n")
+cat("  Avg total spent:", dollar(mean(high_risk$Hist_TotalSpent), prefix = "£"), "\n")
+cat("  Avg months active:", round(mean(high_risk$Months_Active, na.rm = TRUE), 1), "\n")
+```
+
+## Top 20 Highest Risk Customers
+```{r top-risk-customers}
+# Identify top risk customers for immediate action
+top_risk <- model_data %>%
+  arrange(desc(Churn_Probability)) %>%
+  head(20) %>%
+  select(CustomerID, Churn_Probability, Risk_Category, Hist_RecencyDays,
+         Hist_TotalTransactions, Hist_TotalSpent)
+
+top_risk %>%
+  mutate(
+    Churn_Probability = percent(Churn_Probability, accuracy = 0.1),
+    Hist_TotalSpent = dollar(Hist_TotalSpent, prefix = "£")
+  ) %>%
+  kable(caption = "Top 20 Customers at Highest Churn Risk") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), font_size = 10) %>%
+  scroll_box(width = "100%")
+```
+
+---
+
+# Business Impact & ROI
+```{r business-impact}
+cat("\n")
+cat(rep("=", 70), "\n")
+cat("                    BUSINESS IMPACT ANALYSIS\n")
+cat(rep("=", 70), "\n\n")
+
+# Calculate retention campaign scenarios
+total_high_risk <- sum(model_data$Risk_Category %in% c("High Risk", "Critical Risk"))
+revenue_at_risk <- sum((model_data %>% 
+  filter(Risk_Category %in% c("High Risk", "Critical Risk")))$Hist_TotalSpent)
+
+cat("CHURN RISK ASSESSMENT:\n\n")
+cat(sprintf("  • High/Critical risk customers: %s\n", comma(total_high_risk)))
+cat(sprintf("  • Total revenue at risk: %s\n", dollar(revenue_at_risk, prefix = "£")))
+cat(sprintf("  • Average value per at-risk customer: %s\n\n",
+            dollar(revenue_at_risk / total_high_risk, prefix = "£")))
+
+# Retention scenarios
+cat("RETENTION CAMPAIGN SCENARIOS:\n\n")
+
+# Scenario 1: Save 30% of high-risk customers
+save_rate_1 <- 0.30
+saved_revenue_1 <- revenue_at_risk * save_rate_1
+campaign_cost_1 <- total_high_risk * 20  # £20 per customer
+
+cat("Scenario 1: Conservative (30% save rate)\n")
+cat(sprintf("  • Customers saved: %s\n", comma(round(total_high_risk * save_rate_1))))
+cat(sprintf("  • Revenue retained: %s\n", dollar(saved_revenue_1, prefix = "£")))
+cat(sprintf("  • Campaign cost (£20/customer): %s\n", dollar(campaign_cost_1, prefix = "£")))
+cat(sprintf("  • Net benefit: %s\n", dollar(saved_revenue_1 - campaign_cost_1, prefix = "£")))
+cat(sprintf("  • ROI: %.1fx\n\n", saved_revenue_1 / campaign_cost_1))
+
+# Scenario 2: Save 50% of high-risk customers
+save_rate_2 <- 0.50
+saved_revenue_2 <- revenue_at_risk * save_rate_2
+campaign_cost_2 <- total_high_risk * 35  # £35 per customer (more intensive)
+
+cat("Scenario 2: Aggressive (50% save rate)\n")
+cat(sprintf("  • Customers saved: %s\n", comma(round(total_high_risk * save_rate_2))))
+cat(sprintf("  • Revenue retained: %s\n", dollar(saved_revenue_2, prefix = "£")))
+cat(sprintf("  • Campaign cost (£35/customer): %s\n", dollar(campaign_cost_2, prefix = "£")))
+cat(sprintf("  • Net benefit: %s\n", dollar(saved_revenue_2 - campaign_cost_2, prefix = "£")))
+cat(sprintf("  • ROI: %.1fx\n\n", saved_revenue_2 / campaign_cost_2))
+
+cat(rep("=", 70), "\n\n")
+```
+
+---
+
+# Retention Recommendations
+```{r recommendations}
+cat("TARGETED RETENTION STRATEGIES BY RISK LEVEL\n")
+cat(rep("=", 70), "\n\n")
+
+cat("🔴 CRITICAL RISK (Churn Prob >75%)\n")
+critical_count <- sum(model_data$Risk_Category == "Critical Risk")
+cat(sprintf("   • %s customers\n", comma(critical_count)))
+cat("   Actions:\n")
+cat("   - Immediate personal outreach (phone calls)\n")
+cat("   - Maximum discount offer (30-40% off)\n")
+cat("   - Free shipping for 6 months\n")
+cat("   - Personal account manager\n")
+cat("   - Win-back guarantee (refund if not satisfied)\n")
+cat("   Budget: £50-75 per customer\n\n")
+
+cat("🟠 HIGH RISK (Churn Prob 50-75%)\n")
+high_count <- sum(model_data$Risk_Category == "High Risk")
+cat(sprintf("   • %s customers\n", comma(high_count)))
+cat("   Actions:\n")
+cat("   - Personalized email campaign\n")
+cat("   - 20-25% discount offer\n")
+cat("   - Product recommendations based on past purchases\n")
+cat("   - Free shipping on next order\n")
+cat("   - Feedback survey (understand issues)\n")
+cat("   Budget: £25-35 per customer\n\n")
+
+cat("🟡 MEDIUM RISK (Churn Prob 25-50%)\n")
+medium_count <- sum(model_data$Risk_Category == "Medium Risk")
+cat(sprintf("   • %s customers\n", comma(medium_count)))
+cat("   Actions:\n")
+cat("   - Automated re-engagement emails\n")
+cat("   - 10-15% discount offer\n")
+cat("   - \"We miss you\" messaging\n")
+cat("   - Highlight new products\n")
+cat("   Budget: £10-15 per customer\n\n")
+
+cat("🟢 LOW RISK (Churn Prob <25%)\n")
+low_count <- sum(model_data$Risk_Category == "Low Risk")
+cat(sprintf("   • %s customers\n", comma(low_count)))
+cat("   Actions:\n")
+cat("   - Standard marketing automation\n")
+cat("   - Loyalty program benefits\n")
+cat("   - New product announcements\n")
+cat("   Budget: £3-5 per customer\n\n")
+
+cat(rep("=", 70), "\n\n")
+```
+
+---
+
+# Export Predictions
+```{r export}
+# Export churn predictions for CRM
+churn_export <- model_data %>%
+  select(
+    CustomerID,
+    Churn_Probability,
+    Risk_Category,
+    Churned,
+    Hist_RecencyDays,
+    Hist_TotalTransactions,
+    Hist_TotalSpent,
+    Hist_AOV,
+    Months_Active
+  ) %>%
+  arrange(desc(Churn_Probability))
+
+export_path <- here("data", "processed", "churn_predictions.csv")
+write_csv(churn_export, export_path)
+
+cat("✓ Churn predictions exported to:", export_path, "\n")
+cat("  Customers:", nrow(churn_export), "\n\n")
+
+cat("Ready for:\n")
+cat("  • CRM integration\n")
+cat("  • Retention campaign targeting\n")
+cat("  • Customer service prioritization\n")
+cat("  • Sales team alerts\n")
+```
+
+---
+
+# Summary & Key Takeaways
+```{r summary}
+cat("\n")
+cat(rep("=", 70), "\n")
+cat("            CHURN PREDICTION MODEL COMPLETE\n")
+cat(rep("=", 70), "\n\n")
+
+cat("✅ ACHIEVEMENTS:\n\n")
+cat("  1. Built logistic regression churn prediction model\n")
+cat(sprintf("  2. Model accuracy: %.1f%%\n", conf_matrix$overall['Accuracy'] * 100))
+cat(sprintf("  3. AUC score: %.3f (%s)\n", auc_value, 
+            ifelse(auc_value > 0.8, "Excellent", ifelse(auc_value > 0.7, "Good", "Fair"))))
+cat(sprintf("  4. Identified %s high-risk customers\n", comma(total_high_risk)))
+cat(sprintf("  5. Quantified %s in at-risk revenue\n\n", dollar(revenue_at_risk, prefix = "£")))
+
+cat("🎯 KEY INSIGHTS:\n\n")
+cat(sprintf("  • %.1f%% of customers at high/critical churn risk\n",
+            total_high_risk / nrow(model_data) * 100))
+cat(sprintf("  • Revenue at risk: %s\n", dollar(revenue_at_risk, prefix = "£")))
+cat(sprintf("  • Top risk factor: %s\n", feature_importance$Feature[1]))
+cat(sprintf("  • Retention ROI: %.1fx (conservative scenario)\n", saved_revenue_1 / campaign_cost_1))
+
+cat("\n💡 NEXT STEPS:\n\n")
+cat("  1. Launch immediate outreach to critical risk customers\n")
+cat("  2. Implement risk-based retention campaigns\n")
+cat("  3. Integrate churn scores into CRM\n")
+cat("  4. Monthly model retraining and updates\n")
+cat("  5. Track campaign effectiveness and adjust\n\n")
+
+cat(rep("=", 70), "\n\n")
+```
+
+---
+
+# Session Information
+```{r session-info}
+sessionInfo()
+```
+
+---
+
+**✅ Churn Prediction Model Complete!**
+
+*This model enables proactive customer retention and optimized intervention strategies.*
