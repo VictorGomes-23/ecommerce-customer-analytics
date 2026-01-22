@@ -60,33 +60,11 @@ document.querySelectorAll('.nav-menu a').forEach(link => {
 });
 
 // ============================================
-// SCROLL ANIMATIONS
+// SCROLL ANIMATIONS - DISABLED FOR ANALYSES PAGE
 // ============================================
 
-const observerOptions = {
-    threshold: 0.05,  // Changed from 0.1 to 0.05 for earlier trigger
-    rootMargin: '0px 0px -10px 0px'  // Changed from -50px to -10px
-};
-
-const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            entry.target.style.opacity = '1';
-            entry.target.style.transform = 'translateY(0)';
-        }
-    });
-}, observerOptions);
-
-// Observe all sections EXCEPT page-header
-document.querySelectorAll('section:not(.page-header)').forEach(section => {
-    section.style.opacity = '0';
-    section.style.transform = 'translateY(20px)';
-    section.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-    observer.observe(section);
-});
-
-// Make page-header immediately visible (no animation)
-document.querySelectorAll('.page-header').forEach(section => {
+// Make all sections immediately visible (animations disabled)
+document.querySelectorAll('section').forEach(section => {
     section.style.opacity = '1';
     section.style.transform = 'translateY(0)';
 });
