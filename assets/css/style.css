@@ -655,6 +655,7 @@ body {
 
 .content-section {
     padding: var(--spacing-xl) 0;
+    margin-top: 90px;
 }
 
 .content-grid {
@@ -1114,6 +1115,7 @@ body {
     grid-template-columns: 2fr 1fr;
     gap: 2rem;
     padding: 2rem;
+    width: 100%;
 }
 
 .analysis-main {
