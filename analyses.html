@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detailed Analyses | Victor Gomes</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="index.html">VICTOR GOMES</a>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="project.html">Project</a></li>
+                <li><a href="analyses.html" class="active">Analyses</a></li>
+                <li><a href="visualizations.html">Visualizations</a></li>
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="about.html">About</a></li>
+                <li><a href="assets/Victor_Gomes_Resume.pdf" target="_blank" class="btn-resume">Resume</a></li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1>Detailed Analyses</h1>
+            <p class="page-subtitle">Deep dive into each analytical component with methodology, results, and business impact</p>
+        </div>
+    </section>
+
+    <!-- Analyses Content -->
+    <section class="content-section">
+        <div class="container">
+            
+            <!-- Analysis 1: RFM Segmentation -->
+            <div class="analysis-block">
+                <div class="analysis-header">
+                    <span class="analysis-number">01</span>
+                    <h2>RFM Customer Segmentation</h2>
+                </div>
+                <div class="analysis-content">
+                    <div class="analysis-main">
+                        <div class="analysis-image">
+                            <img src="visualizations/02_customer_segmentation.png" alt="RFM Customer Segmentation">
+                        </div>
+                        <h3>Business Challenge</h3>
+                        <p>The company needed to identify high-value customers and optimize marketing spend across different customer groups. Without segmentation, all customers received the same treatment regardless of their value or behavior.</p>
+                        
+                        <h3>Methodology</h3>
+                        <ul class="methodology-list">
+                            <li><strong>Recency:</strong> Days since last purchase (more recent = better)</li>
+                            <li><strong>Frequency:</strong> Number of transactions (more frequent = better)</li>
+                            <li><strong>Monetary:</strong> Total amount spent (higher spend = better)</li>
+                            <li><strong>Scoring:</strong> Quintile-based approach (1-5 scale for each dimension)</li>
+                            <li><strong>Segmentation:</strong> Combined scores to create 5 distinct customer groups</li>
+                        </ul>
+
+                        <h3>Key Findings</h3>
+                        <div class="findings-grid">
+                            <div class="finding-card">
+                                <h4>Champions</h4>
+                                <p class="finding-stat">512 customers (12%)</p>
+                                <p>£3.6M revenue • £7,031 avg spend</p>
+                                <p class="finding-desc">Recent, frequent buyers with high spend. Best customers driving 41% of revenue.</p>
+                            </div>
+                            <div class="finding-card">
+                                <h4>Loyal Customers</h4>
+                                <p class="finding-stat">1,247 customers (29%)</p>
+                                <p>£2.8M revenue • £2,244 avg spend</p>
+                                <p class="finding-desc">Regular buyers with moderate spend. Solid revenue contributors.</p>
+                            </div>
+                            <div class="finding-card">
+                                <h4>Potential</h4>
+                                <p class="finding-stat">867 customers (20%)</p>
+                                <p>£1.4M revenue • £1,615 avg spend</p>
+                                <p class="finding-desc">Recent buyers with growth potential. Target for upselling.</p>
+                            </div>
+                            <div class="finding-card">
+                                <h4>At Risk</h4>
+                                <p class="finding-stat">1,183 customers (27%)</p>
+                                <p>£1.1M revenue • £930 avg spend</p>
+                                <p class="finding-desc">Previously active, now declining. Need retention campaigns.</p>
+                            </div>
+                            <div class="finding-card">
+                                <h4>Lost</h4>
+                                <p class="finding-stat">563 customers (13%)</p>
+                                <p>£127K revenue • £226 avg spend</p>
+                                <p class="finding-desc">Inactive customers. Win-back opportunity.</p>
+                            </div>
+                        </div>
+
+                        <h3>Business Impact</h3>
+                        <div class="impact-list">
+                            <div class="impact-item success">
+                                <i class="fas fa-check-circle"></i>
+                                <div>
+                                    <strong>Pareto Principle Confirmed</strong>
+                                    <p>Top 12% of customers (Champions) generate 41% of revenue</p>
+                                </div>
+                            </div>
+                            <div class="impact-item success">
+                                <i class="fas fa-check-circle"></i>
+                                <div>
+                                    <strong>VIP Program Opportunity</strong>
+                                    <p>Target 512 Champions with exclusive benefits (estimated £180K additional annual revenue)</p>
+                                </div>
+                            </div>
+                            <div class="impact-item success">
+                                <i class="fas fa-check-circle"></i>
+                                <div>
+                                    <strong>Win-Back Campaign</strong>
+                                    <p>563 Lost customers represent £127K recovery potential</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h3>Recommendations</h3>
+                        <ol class="recommendations-list">
+                            <li>Launch VIP loyalty program for Champions with exclusive perks and early access</li>
+                            <li>Implement automated email sequences to upgrade Potential customers to Loyal status</li>
+                            <li>Create urgent retention campaigns for At Risk segment with personalized offers</li>
+                            <li>Design win-back campaign for Lost customers with special "we miss you" incentives</li>
+                            <li>Adjust marketing budget allocation to reflect segment value (60% to Champions/Loyal)</li>
+                        </ol>
+                    </div>
+                    <div class="analysis-sidebar">
+                        <div class="stats-box">
+                            <h4>Key Metrics</h4>
+                            <div class="stat-item">
+                                <span class="stat-label">Total Customers</span>
+                                <span class="stat-value">4,372</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Total Revenue</span>
+                                <span class="stat-value">£8.7M</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Avg Customer Value</span>
+                                <span class="stat-value">£1,997</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Champion Value</span>
+                                <span class="stat-value">£7,031</span>
+                            </div>
+                        </div>
+                        <div class="tools-box">
+                            <h4>Tools Used</h4>
+                            <span class="tool-badge">R</span>
+                            <span class="tool-badge">dplyr</span>
+                            <span class="tool-badge">ggplot2</span>
+                            <span class="tool-badge">tidyverse</span>
+                        </div>
+                        <div class="code-box">
+                            <h4>View Code</h4>
+                            <a href="https://github.com/VictorGomes-23/ecommerce-customer-analytics/blob/main/notebooks/03_rfm_segmentation.Rmd" target="_blank" class="btn btn-outline btn-sm">
+                                <i class="fab fa-github"></i> R Markdown Notebook
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analysis 2: Churn Prediction -->
+            <div class="analysis-block">
+                <div class="analysis-header">
+                    <span class="analysis-number">02</span>
+                    <h2>Churn Prediction Model</h2>
+                </div>
+                <div class="analysis-content">
+                    <div class="analysis-main">
+                        <div class="analysis-image">
+                            <img src="visualizations/03_churn_risk_distribution.png" alt="Churn Risk Distribution">
+                        </div>
+                        <h3>Business Challenge</h3>
+                        <p>Customer retention costs 5-7x less than acquisition. The company needed to identify customers likely to churn before they leave, enabling proactive retention campaigns rather than reactive win-back efforts.</p>
+                        
+                        <h3>Methodology</h3>
+                        <ul class="methodology-list">
+                            <li><strong>Model Type:</strong> Logistic Regression (interpretable, production-ready)</li>
+                            <li><strong>Target Variable:</strong> Churned = no purchase in 180 days after prediction point</li>
+                            <li><strong>Temporal Validation:</strong> Features from historical period, labels from future observation period (no data leakage)</li>
+                            <li><strong>Features (18 total):</strong> Recency, frequency, monetary, purchase trends, engagement patterns</li>
+                            <li><strong>Train/Test Split:</strong> 70/30 with stratification on churn status</li>
+                        </ul>
+
+                        <h3>Model Performance</h3>
+                        <div class="performance-grid">
+                            <div class="metric-card">
+                                <div class="metric-icon"><i class="fas fa-bullseye"></i></div>
+                                <h4>78.2%</h4>
+                                <p>Accuracy</p>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-icon"><i class="fas fa-chart-area"></i></div>
+                                <h4>0.847</h4>
+                                <p>AUC Score</p>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-icon"><i class="fas fa-crosshairs"></i></div>
+                                <h4>72.4%</h4>
+                                <p>Precision</p>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-icon"><i class="fas fa-search"></i></div>
+                                <h4>68.9%</h4>
+                                <p>Recall</p>
+                            </div>
+                        </div>
+
+                        <h3>Top Predictors</h3>
+                        <div class="predictors-list">
+                            <div class="predictor-item">
+                                <div class="predictor-bar" style="width: 100%;"></div>
+                                <span class="predictor-label">Days Since Last Purchase (Recency)</span>
+                                <span class="predictor-value">β = 1.87</span>
+                            </div>
+                            <div class="predictor-item">
+                                <div class="predictor-bar" style="width: 65%;"></div>
+                                <span class="predictor-label">Purchase Frequency</span>
+                                <span class="predictor-value">β = -0.92</span>
+                            </div>
+                            <div class="predictor-item">
+                                <div class="predictor-bar" style="width: 45%;"></div>
+                                <span class="predictor-label">Spending Trend</span>
+                                <span class="predictor-value">β = -0.64</span>
+                            </div>
+                        </div>
+
+                        <h3>Business Impact</h3>
+                        <div class="impact-list">
+                            <div class="impact-item success">
+                                <i class="fas fa-check-circle"></i>
+                                <div>
+                                    <strong>£543K Revenue at Risk Identified</strong>
+                                    <p>838 high/critical risk customers with quantified revenue exposure</p>
+                                </div>
+                            </div>
+                            <div class="impact-item success">
+                                <i class="fas fa-check-circle"></i>
+                                <div>
+                                    <strong>3.2x ROI on Retention Campaigns</strong>
+                                    <p>Conservative scenario: save 30% of at-risk customers at £20/customer cost</p>
+                                </div>
+                            </div>
+                            <div class="impact-item success">
+                                <i class="fas fa-check-circle"></i>
+                                <div>
+                                    <strong>Proactive Intervention</strong>
+                                    <p>Move from reactive win-back to proactive retention (5-7x more cost-effective)</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h3>Retention Strategy by Risk Level</h3>
+                        <div class="strategy-grid">
+                            <div class="strategy-card critical">
+                                <h4><i class="fas fa-exclamation-triangle"></i> Critical Risk (>75%)</h4>
+                                <p class="strategy-count">187 customers • £156K at risk</p>
+                                <p><strong>Actions:</strong> Personal phone outreach, 30-40% discount, account manager</p>
+                                <p><strong>Budget:</strong> £50-75 per customer</p>
+                            </div>
+                            <div class="strategy-card high">
+                                <h4><i class="fas fa-exclamation-circle"></i> High Risk (50-75%)</h4>
+                                <p class="strategy-count">651 customers • £387K at risk</p>
+                                <p><strong>Actions:</strong> Personalized email, 20-25% discount, feedback survey</p>
+                                <p><strong>Budget:</strong> £25-35 per customer</p>
+                            </div>
+                        </div>
+
+                        <h3>Recommendations</h3>
+                        <ol class="recommendations-list">
+                            <li>Deploy immediate retention campaigns to 187 critical risk customers (expected £47K recovery)</li>
+                            <li>Automate monthly churn scoring to continuously identify at-risk customers</li>
+                            <li>A/B test retention offers to optimize cost-effectiveness</li>
+                            <li>Integrate churn scores into CRM for customer service prioritization</li>
+                            <li>Retrain model quarterly with new data to maintain accuracy</li>
+                        </ol>
+                    </div>
+                    <div class="analysis-sidebar">
+                        <div class="stats-box">
+                            <h4>Model Stats</h4>
+                            <div class="stat-item">
+                                <span class="stat-label">Training Samples</span>
+                                <span class="stat-value">3,060</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Test Samples</span>
+                                <span class="stat-value">1,312</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Features</span>
+                                <span class="stat-value">18</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Churn Rate</span>
+                                <span class="stat-value">19.3%</span>
+                            </div>
+                        </div>
+                        <div class="tools-box">
+                            <h4>Tools Used</h4>
+                            <span class="tool-badge">R</span>
+                            <span class="tool-badge">caret</span>
+                            <span class="tool-badge">pROC</span>
+                            <span class="tool-badge">glm</span>
+                        </div>
+                        <div class="code-box">
+                            <h4>View Code</h4>
+                            <a href="https://github.com/VictorGomes-23/ecommerce-customer-analytics/blob/main/notebooks/07_churn_prediction.Rmd" target="_blank" class="btn btn-outline btn-sm">
+                                <i class="fab fa-github"></i> R Markdown Notebook
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analysis 3: Cohort Analysis -->
+            <div class="analysis-block">
+                <div class="analysis-header">
+                    <span class="analysis-number">03</span>
+                    <h2>Cohort Retention Analysis</h2>
+                </div>
+                <div class="analysis-content">
+                    <div class="analysis-main">
+                        <div class="analysis-image">
+                            <img src="visualizations/06_rfm_heatmap.png" alt="Cohort Retention">
+                        </div>
+                        <h3>Business Challenge</h3>
+                        <p>Understanding customer retention patterns over time is critical for forecasting revenue, optimizing customer acquisition costs, and identifying the most valuable acquisition channels.</p>
+                        
+                        <h3>Methodology</h3>
+                        <ul class="methodology-list">
+                            <li><strong>Cohort Definition:</strong> Customers grouped by first purchase month</li>
+                            <li><strong>Tracking Period:</strong> 13 monthly cohorts (Dec 2010 - Dec 2011)</li>
+                            <li><strong>Retention Metric:</strong> % of cohort making a purchase each subsequent month</li>
+                            <li><strong>Visualization:</strong> Heatmap showing retention rates by cohort and month</li>
+                        </ul>
+
+                        <h3>Key Findings</h3>
+                        <div class="findings-grid">
+                            <div class="finding-card">
+                                <h4>Month 1 Retention</h4>
+                                <p class="finding-stat">37% average</p>
+                                <p class="finding-desc">Critical drop-off point. First 30 days determine long-term engagement.</p>
+                            </div>
+                            <div class="finding-card">
+                                <h4>Month 6 Stabilization</h4>
+                                <p class="finding-stat">22% average</p>
+                                <p class="finding-desc">Retention stabilizes after 6 months. Customers who stay this long become loyal.</p>
+                            </div>
+                            <div class="finding-card">
+                                <h4>Best Cohort</h4>
+                                <p class="finding-stat">Dec 2010 (45%)</p>
+                                <p class="finding-desc">Holiday shoppers showed highest month-1 retention. Strong seasonal effect.</p>
+                            </div>
+                        </div>
+
+                        <h3>Business Impact</h3>
+                        <div class="impact-list">
+                            <div class="impact-item success">
+                                <i class="fas fa-check-circle"></i>
+                                <div>
+                                    <strong>£890K Annual Impact from 10% Improvement</strong>
+                                    <p>Increasing month-1 retention from 37% to 47% adds significant lifetime value</p>
+                                </div>
+                            </div>
+                            <div class="impact-item success">
+                                <i class="fas fa-check-circle"></i>
+                                <div>
+                                    <strong>Critical First Month Window</strong>
+                                    <p>Identified 30-day window where retention interventions are most effective</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h3>Recommendations</h3>
+                        <ol class="recommendations-list">
+                            <li>Implement automated welcome email sequence for new customers (days 1, 3, 7, 14, 30)</li>
+                            <li>Offer first-repeat-purchase incentive (15% off second order within 30 days)</li>
+                            <li>Increase holiday season acquisition budget to capture high-retention cohorts</li>
+                            <li>Create "month 1 survival kit" with product recommendations and usage tips</li>
+                            <li>Track cohort retention as key performance metric in executive dashboards</li>
+                        </ol>
+                    </div>
+                    <div class="analysis-sidebar">
+                        <div class="stats-box">
+                            <h4>Key Metrics</h4>
+                            <div class="stat-item">
+                                <span class="stat-label">Cohorts Analyzed</span>
+                                <span class="stat-value">13</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Avg M1 Retention</span>
+                                <span class="stat-value">37%</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Avg M6 Retention</span>
+                                <span class="stat-value">22%</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Best Cohort</span>
+                                <span class="stat-value">Dec 2010</span>
+                            </div>
+                        </div>
+                        <div class="tools-box">
+                            <h4>Tools Used</h4>
+                            <span class="tool-badge">R</span>
+                            <span class="tool-badge">lubridate</span>
+                            <span class="tool-badge">ggplot2</span>
+                            <span class="tool-badge">plotly</span>
+                        </div>
+                        <div class="code-box">
+                            <h4>View Code</h4>
+                            <a href="https://github.com/VictorGomes-23/ecommerce-customer-analytics/blob/main/notebooks/04_cohort_analysis.Rmd" target="_blank" class="btn btn-outline btn-sm">
+                                <i class="fab fa-github"></i> R Markdown Notebook
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analysis 4: A/B Testing -->
+            <div class="analysis-block">
+                <div class="analysis-header">
+                    <span class="analysis-number">04</span>
+                    <h2>A/B Testing Framework</h2>
+                </div>
+                <div class="analysis-content">
+                    <div class="analysis-main">
+                        <h3>Test Scenario</h3>
+                        <p>Tested two email marketing approaches targeting high and medium churn risk customers:</p>
+                        <div class="ab-comparison">
+                            <div class="ab-variant control">
+                                <h4>Control (A)</h4>
+                                <p class="variant-label">Standard Email</p>
+                                <ul>
+                                    <li>10% discount offer</li>
+                                    <li>Generic messaging</li>
+                                    <li>Cost: £2 per customer</li>
+                                </ul>
+                            </div>
+                            <div class="ab-variant treatment">
+                                <h4>Treatment (B)</h4>
+                                <p class="variant-label">Personalized Email</p>
+                                <ul>
+                                    <li>15% discount offer</li>
+                                    <li>Free shipping (£15 value)</li>
+                                    <li>Personalized product recommendations</li>
+                                    <li>Cost: £7 per customer</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <h3>Statistical Results</h3>
+                        <div class="ab-results">
+                            <div class="result-card">
+                                <h4>Control Conversion</h4>
+                                <p class="result-stat">12.3%</p>
+                                <p>1,000 customers</p>
+                            </div>
+                            <div class="result-card winner">
+                                <h4>Treatment Conversion</h4>
+                                <p class="result-stat">18.7%</p>
+                                <p>1,000 customers</p>
+                                <span class="winner-badge">Winner</span>
+                            </div>
+                            <div class="result-card">
+                                <h4>Lift</h4>
+                                <p class="result-stat">+52%</p>
+                                <p>Relative improvement</p>
+                            </div>
+                        </div>
+
+                        <h3>Business Impact</h3>
+                        <div class="impact-list">
+                            <div class="impact-item success">
+                                <i class="fas fa-check-circle"></i>
+                                <div>
+                                    <strong>£47K Additional Annual Revenue</strong>
+                                    <p>Full rollout to 2,846 eligible customers generates significant incremental profit</p>
+                                </div>
+                            </div>
+                            <div class="impact-item success">
+                                <i class="fas fa-check-circle"></i>
+                                <div>
+                                    <strong>3.3x Incremental ROI</strong>
+                                    <p>Treatment generates £3.30 for every £1 of additional investment</p>
+                                </div>
+                            </div>
+                            <div class="impact-item success">
+                                <i class="fas fa-check-circle"></i>
+                                <div>
+                                    <strong>Statistically Significant (p < 0.001)</strong>
+                                    <p>High confidence in results with proper experimental design</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h3>Recommendations</h3>
+                        <ol class="recommendations-list">
+                            <li>Roll out Treatment (personalized email) to all 2,846 eligible high/medium risk customers</li>
+                            <li>Continue A/B testing with additional variants (20% discount, bundle offers)</li>
+                            <li>Apply personalization learnings to other marketing channels</li>
+                            <li>Monitor actual vs projected performance for 90 days post-rollout</li>
+                            <li>Use A/B testing framework as standard for all new campaigns</li>
+                        </ol>
+                    </div>
+                    <div class="analysis-sidebar">
+                        <div class="stats-box">
+                            <h4>Test Parameters</h4>
+                            <div class="stat-item">
+                                <span class="stat-label">Sample Size</span>
+                                <span class="stat-value">2,000</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Duration</span>
+                                <span class="stat-value">14 days</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">P-value</span>
+                                <span class="stat-value">< 0.001</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Statistical Power</span>
+                                <span class="stat-value">80%</span>
+                            </div>
+                        </div>
+                        <div class="tools-box">
+                            <h4>Tools Used</h4>
+                            <span class="tool-badge">R</span>
+                            <span class="tool-badge">pwr</span>
+                            <span class="tool-badge">broom</span>
+                            <span class="tool-badge">ggplot2</span>
+                        </div>
+                        <div class="code-box">
+                            <h4>View Code</h4>
+                            <a href="https://github.com/VictorGomes-23/ecommerce-customer-analytics/blob/main/notebooks/08_ab_testing.Rmd" target="_blank" class="btn btn-outline btn-sm">
+                                <i class="fab fa-github"></i> R Markdown Notebook
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta">
+        <div class="container">
+            <h2>Impressed by the Analysis?</h2>
+            <p>Let's discuss how I can apply similar analytical rigor to your business challenges</p>
+            <div class="cta-buttons">
+                <a href="mailto:victorbgomes23@gmail.com" class="btn btn-primary btn-large">
+                    <i class="fas fa-envelope"></i> Contact Me
+                </a>
+                <a href="visualizations.html" class="btn btn-outline btn-large">
+                    <i class="fas fa-images"></i> View Visualizations
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-left">
+                    <h3>Victor Gomes</h3>
+                    <p>Data Analyst | Business Intelligence Specialist</p>
+                </div>
+                <div class="footer-center">
+                    <div class="social-links">
+                        <a href="https://github.com/VictorGomes-23" target="_blank" title="GitHub">
+                            <i class="fab fa-github"></i>
+                        </a>
+                        <a href="https://www.linkedin.com/in/victorgomes23" target="_blank" title="LinkedIn">
+                            <i class="fab fa-linkedin"></i>
+                        </a>
+                        <a href="mailto:victorbgomes23@gmail.com" title="Email">
+                            <i class="fas fa-envelope"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="footer-right">
+                    <p>&copy; 2026 Victor Gomes. All rights reserved.</p>
+                    <p>Built with HTML, CSS, JavaScript</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="assets/js/script.js"></script>
+</body>
+</html>
