@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Dashboard | Victor Gomes</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="index.html">VICTOR GOMES</a>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="project.html">Project</a></li>
+                <li><a href="analyses.html">Analyses</a></li>
+                <li><a href="visualizations.html">Visualizations</a></li>
+                <li><a href="dashboard.html" class="active">Dashboard</a></li>
+                <li><a href="about.html">About</a></li>
+                <li><a href="assets/Victor_Gomes_Resume.pdf" target="_blank" class="btn-resume">Resume</a></li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1>Interactive Dashboard</h1>
+            <p class="page-subtitle">Production-ready Shiny application with real-time analytics and interactive filtering</p>
+            <a href="https://victorgomes-23.shinyapps.io/ecommerce-customer-analytics/" target="_blank" class="btn btn-primary btn-large">
+                <i class="fas fa-external-link-alt"></i> Launch Full Dashboard
+            </a>
+        </div>
+    </section>
+
+    <!-- Dashboard Preview -->
+    <section class="dashboard-preview">
+        <div class="container">
+            <div class="preview-frame">
+                <iframe 
+                    src="https://victorgomes-23.shinyapps.io/ecommerce-customer-analytics/" 
+                    frameborder="0"
+                    allowfullscreen>
+                </iframe>
+            </div>
+            <p class="preview-note">
+                <i class="fas fa-info-circle"></i> 
+                For the best experience, <a href="https://victorgomes-23.shinyapps.io/ecommerce-customer-analytics/" target="_blank">open the dashboard in a new window</a>
+            </p>
+        </div>
+    </section>
+
+    <!-- Dashboard Features -->
+    <section class="features-section">
+        <div class="container">
+            <h2 class="section-title">Dashboard Features</h2>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-tachometer-alt"></i>
+                    </div>
+                    <h3>Overview Module</h3>
+                    <p>8 real-time KPI cards tracking revenue, customers, orders, AOV, churn rate, and more. Dynamic calculations update based on filter selections.</p>
+                    <ul class="feature-list">
+                        <li>Monthly revenue trend visualization</li>
+                        <li>Top 10 products bar chart</li>
+                        <li>Customer segment distribution</li>
+                        <li>Geographic revenue analysis</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h3>Customer Segments</h3>
+                    <p>Deep dive into RFM segmentation with interactive tables and charts showing segment performance metrics.</p>
+                    <ul class="feature-list">
+                        <li>Segment performance summary table</li>
+                        <li>RFM score distribution histograms</li>
+                        <li>Revenue contribution pie chart</li>
+                        <li>CLV box plots by segment</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <h3>Churn Analysis</h3>
+                    <p>Real-time churn risk assessment with ML predictions identifying high-risk customers and revenue at risk.</p>
+                    <ul class="feature-list">
+                        <li>High-risk customer count and revenue</li>
+                        <li>Churn probability distribution</li>
+                        <li>Risk category breakdown</li>
+                        <li>Top 20 highest risk customers table</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-shopping-cart"></i>
+                    </div>
+                    <h3>Product Performance</h3>
+                    <p>Comprehensive product analytics with interactive tables and charts for sales analysis.</p>
+                    <ul class="feature-list">
+                        <li>Top 20 products by revenue</li>
+                        <li>Sortable product performance table</li>
+                        <li>Units sold and pricing metrics</li>
+                        <li>Search and filter capabilities</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
+                    <h3>Cohort Analysis</h3>
+                    <p>Interactive retention heatmap tracking customer cohorts over time with hover details.</p>
+                    <ul class="feature-list">
+                        <li>Cohort retention heatmap</li>
+                        <li>Average retention curves</li>
+                        <li>Interactive hover tooltips</li>
+                        <li>Month-over-month tracking</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-sliders-h"></i>
+                    </div>
+                    <h3>Global Filters</h3>
+                    <p>Dynamic filtering across all modules for customized analysis and drill-down capabilities.</p>
+                    <ul class="feature-list">
+                        <li>Date range selector</li>
+                        <li>Customer segment filter</li>
+                        <li>Country multi-select</li>
+                        <li>Real-time updates across all tabs</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Technical Specs -->
+    <section class="specs-section">
+        <div class="container">
+            <h2 class="section-title">Technical Specifications</h2>
+            <div class="specs-grid">
+                <div class="spec-card">
+                    <h3><i class="fas fa-code"></i> Built With</h3>
+                    <div class="tech-list">
+                        <span class="tech-item">R Shiny</span>
+                        <span class="tech-item">shinydashboard</span>
+                        <span class="tech-item">Plotly</span>
+                        <span class="tech-item">DT</span>
+                        <span class="tech-item">tidyverse</span>
+                    </div>
+                </div>
+                <div class="spec-card">
+                    <h3><i class="fas fa-chart-line"></i> Data Processing</h3>
+                    <ul>
+                        <li>Reactive programming for real-time updates</li>
+                        <li>Efficient data filtering and aggregation</li>
+                        <li>In-memory caching for performance</li>
+                    </ul>
+                </div>
+                <div class="spec-card">
+                    <h3><i class="fas fa-mobile-alt"></i> Responsive Design</h3>
+                    <ul>
+                        <li>Mobile-friendly interface</li>
+                        <li>Adaptive layouts for all screen sizes</li>
+                        <li>Touch-optimized controls</li>
+                    </ul>
+                </div>
+                <div class="spec-card">
+                    <h3><i class="fas fa-cloud"></i> Deployment</h3>
+                    <ul>
+                        <li>Hosted on shinyapps.io</li>
+                        <li>24/7 availability</li>
+                        <li>Automatic scaling</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Performance Metrics -->
+    <section class="performance-section">
+        <div class="container">
+            <h2 class="section-title">Performance & Capabilities</h2>
+            <div class="performance-grid">
+                <div class="performance-card">
+                    <div class="performance-number">541K+</div>
+                    <p>Transactions Processed</p>
+                </div>
+                <div class="performance-card">
+                    <div class="performance-number">4,372</div>
+                    <p>Customers Analyzed</p>
+                </div>
+                <div class="performance-card">
+                    <div class="performance-number">15+</div>
+                    <p>Interactive Charts</p>
+                </div>
+                <div class="performance-card">
+                    <div class="performance-number">&lt;2s</div>
+                    <p>Load Time</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Code Repository -->
+    <section class="code-section">
+        <div class="container">
+            <div class="code-card">
+                <div class="code-content">
+                    <i class="fab fa-github fa-3x"></i>
+                    <h2>View the Source Code</h2>
+                    <p>The complete Shiny application code is available on GitHub with detailed documentation, setup instructions, and deployment guides.</p>
+                    <a href="https://github.com/VictorGomes-23/ecommerce-customer-analytics/tree/main/shiny_app" target="_blank" class="btn btn-primary btn-large">
+                        <i class="fab fa-github"></i> View on GitHub
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta">
+        <div class="container">
+            <h2>Interested in Custom Dashboards?</h2>
+            <p>I can build interactive analytics solutions tailored to your business needs</p>
+            <div class="cta-buttons">
+                <a href="mailto:victorbgomes23@gmail.com" class="btn btn-primary btn-large">
+                    <i class="fas fa-envelope"></i> Let's Talk
+                </a>
+                <a href="about.html" class="btn btn-outline btn-large">
+                    <i class="fas fa-user"></i> Learn More About Me
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-left">
+                    <h3>Victor Gomes</h3>
+                    <p>Data Analyst | Business Intelligence Specialist</p>
+                </div>
+                <div class="footer-center">
+                    <div class="social-links">
+                        <a href="https://github.com/VictorGomes-23" target="_blank" title="GitHub">
+                            <i class="fab fa-github"></i>
+                        </a>
+                        <a href="https://www.linkedin.com/in/victorgomes23" target="_blank" title="LinkedIn">
+                            <i class="fab fa-linkedin"></i>
+                        </a>
+                        <a href="mailto:victorbgomes23@gmail.com" title="Email">
+                            <i class="fas fa-envelope"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="footer-right">
+                    <p>&copy; 2026 Victor Gomes. All rights reserved.</p>
+                    <p>Built with HTML, CSS, JavaScript</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="assets/js/script.js"></script>
+</body>
+</html>

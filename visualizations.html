@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizations | Victor Gomes</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <a href="index.html">VICTOR GOMES</a>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="project.html">Project</a></li>
+                <li><a href="analyses.html">Analyses</a></li>
+                <li><a href="visualizations.html" class="active">Visualizations</a></li>
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="about.html">About</a></li>
+                <li><a href="assets/Victor_Gomes_Resume.pdf" target="_blank" class="btn-resume">Resume</a></li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1>Visualization Portfolio</h1>
+            <p class="page-subtitle">Publication-quality static graphics and interactive visualizations demonstrating data storytelling and design excellence</p>
+        </div>
+    </section>
+
+    <!-- Filter Buttons -->
+    <section class="viz-filters">
+        <div class="container">
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">All Visualizations</button>
+                <button class="filter-btn" data-filter="static">Static (ggplot2)</button>
+                <button class="filter-btn" data-filter="interactive">Interactive (Plotly)</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Visualizations Gallery -->
+    <section class="viz-gallery">
+        <div class="container">
+
+            <!-- Viz 1: Revenue Trends -->
+            <div class="viz-item static" data-category="static">
+                <div class="viz-image">
+                    <img src="visualizations/01_revenue_trends.png" alt="Revenue Trends Analysis" loading="lazy">
+                    <div class="viz-overlay">
+                        <a href="visualizations/01_revenue_trends.png" target="_blank" class="btn btn-light">
+                            <i class="fas fa-expand"></i> View Full Size
+                        </a>
+                    </div>
+                </div>
+                <div class="viz-content">
+                    <span class="viz-badge static-badge">ggplot2</span>
+                    <h3>Revenue Trends & Seasonality</h3>
+                    <p class="viz-description">
+                        Time series analysis showing monthly revenue patterns with 3-month moving average trend line. 
+                        Peak revenue (£685K) identified in November with clear seasonal patterns.
+                    </p>
+                    <div class="viz-insights">
+                        <h4>Key Insights</h4>
+                        <ul>
+                            <li>23% year-over-year revenue growth in peak season</li>
+                            <li>Clear November spike indicating holiday shopping surge</li>
+                            <li>Underlying growth trend despite monthly fluctuations</li>
+                        </ul>
+                    </div>
+                    <div class="viz-tech">
+                        <i class="fas fa-tools"></i> 
+                        <span>R, ggplot2, lubridate, scales</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Viz 2: Customer Segmentation -->
+            <div class="viz-item static" data-category="static">
+                <div class="viz-image">
+                    <img src="visualizations/02_customer_segmentation.png" alt="Customer Segmentation" loading="lazy">
+                    <div class="viz-overlay">
+                        <a href="visualizations/02_customer_segmentation.png" target="_blank" class="btn btn-light">
+                            <i class="fas fa-expand"></i> View Full Size
+                        </a>
+                    </div>
+                </div>
+                <div class="viz-content">
+                    <span class="viz-badge static-badge">ggplot2</span>
+                    <h3>Customer Segmentation Matrix</h3>
+                    <p class="viz-description">
+                        Multi-dimensional bubble chart visualizing customer segments by count, average revenue, 
+                        and total revenue contribution. Demonstrates Pareto principle in customer value.
+                    </p>
+                    <div class="viz-insights">
+                        <h4>Key Insights</h4>
+                        <ul>
+                            <li>Champions (12% of customers) generate 41% of revenue</li>
+                            <li>Clear separation between high and low value segments</li>
+                            <li>Lost segment represents £127K recovery opportunity</li>
+                        </ul>
+                    </div>
+                    <div class="viz-tech">
+                        <i class="fas fa-tools"></i> 
+                        <span>R, ggplot2, dplyr, custom theme</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Viz 3: Churn Risk -->
+            <div class="viz-item static" data-category="static">
+                <div class="viz-image">
+                    <img src="visualizations/03_churn_risk_distribution.png" alt="Churn Risk Distribution" loading="lazy">
+                    <div class="viz-overlay">
+                        <a href="visualizations/03_churn_risk_distribution.png" target="_blank" class="btn btn-light">
+                            <i class="fas fa-expand"></i> View Full Size
+                        </a>
+                    </div>
+                </div>
+                <div class="viz-content">
+                    <span class="viz-badge static-badge">ggplot2</span>
+                    <h3>Churn Risk Assessment</h3>
+                    <p class="viz-description">
+                        Bar chart showing customer distribution across risk categories with revenue at risk quantified. 
+                        Color-coded by severity for immediate actionability.
+                    </p>
+                    <div class="viz-insights">
+                        <h4>Key Insights</h4>
+                        <ul>
+                            <li>838 customers at high/critical risk</li>
+                            <li>£543K total revenue at risk identified</li>
+                            <li>Clear priority segmentation for retention campaigns</li>
+                        </ul>
+                    </div>
+                    <div class="viz-tech">
+                        <i class="fas fa-tools"></i> 
+                        <span>R, ggplot2, custom color palette</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Viz 4: Top Products -->
+            <div class="viz-item static" data-category="static">
+                <div class="viz-image">
+                    <img src="visualizations/04_top_products.png" alt="Top Products Performance" loading="lazy">
+                    <div class="viz-overlay">
+                        <a href="visualizations/04_top_products.png" target="_blank" class="btn btn-light">
+                            <i class="fas fa-expand"></i> View Full Size
+                        </a>
+                    </div>
+                </div>
+                <div class="viz-content">
+                    <span class="viz-badge static-badge">ggplot2</span>
+                    <h3>Top Products Performance</h3>
+                    <p class="viz-description">
+                        Horizontal bar chart ranking top 15 products by revenue with units sold annotations. 
+                        Clean design for executive presentations.
+                    </p>
+                    <div class="viz-insights">
+                        <h4>Key Insights</h4>
+                        <ul>
+                            <li>Top product generates £38.9K revenue</li>
+                            <li>Top 15 products represent 28% of total revenue</li>
+                            <li>Strong performance in gift and novelty categories</li>
+                        </ul>
+                    </div>
+                    <div class="viz-tech">
+                        <i class="fas fa-tools"></i> 
+                        <span>R, ggplot2, stringr, forcats</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Viz 5: Geographic Revenue -->
+            <div class="viz-item static" data-category="static">
+                <div class="viz-image">
+                    <img src="visualizations/05_geographic_revenue.png" alt="Geographic Revenue Distribution" loading="lazy">
+                    <div class="viz-overlay">
+                        <a href="visualizations/05_geographic_revenue.png" target="_blank" class="btn btn-light">
+                            <i class="fas fa-expand"></i> View Full Size
+                        </a>
+                    </div>
+                </div>
+                <div class="viz-content">
+                    <span class="viz-badge static-badge">ggplot2</span>
+                    <h3>Geographic Revenue Distribution</h3>
+                    <p class="viz-description">
+                        Gradient-colored bar chart showing revenue by country with percentage contributions. 
+                        Highlights international market opportunities.
+                    </p>
+                    <div class="viz-insights">
+                        <h4>Key Insights</h4>
+                        <ul>
+                            <li>UK dominates with 82% of total revenue (£7.2M)</li>
+                            <li>EIRE and Netherlands show strong international presence</li>
+                            <li>38 countries total with untapped expansion potential</li>
+                        </ul>
+                    </div>
+                    <div class="viz-tech">
+                        <i class="fas fa-tools"></i> 
+                        <span>R, ggplot2, scales, gradient coloring</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Viz 6: RFM Heatmap -->
+            <div class="viz-item static" data-category="static">
+                <div class="viz-image">
+                    <img src="visualizations/06_rfm_heatmap.png" alt="RFM Heatmap" loading="lazy">
+                    <div class="viz-overlay">
+                        <a href="visualizations/06_rfm_heatmap.png" target="_blank" class="btn btn-light">
+                            <i class="fas fa-expand"></i> View Full Size
+                        </a>
+                    </div>
+                </div>
+                <div class="viz-content">
+                    <span class="viz-badge static-badge">ggplot2</span>
+                    <h3>RFM Customer Value Matrix</h3>
+                    <p class="viz-description">
+                        Heatmap showing customer distribution across Recency and Frequency dimensions with 
+                        average Monetary value. Best customers cluster in top-right quadrant.
+                    </p>
+                    <div class="viz-insights">
+                        <h4>Key Insights</h4>
+                        <ul>
+                            <li>724 Champions in high-recency, high-frequency quadrant</li>
+                            <li>Visual representation of customer value hierarchy</li>
+                            <li>Clear identification of at-risk high-value customers</li>
+                        </ul>
+                    </div>
+                    <div class="viz-tech">
+                        <i class="fas fa-tools"></i> 
+                        <span>R, ggplot2, viridis, geom_tile</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Viz 7: CLV Distribution -->
+            <div class="viz-item static" data-category="static">
+                <div class="viz-image">
+                    <img src="visualizations/07_clv_distribution.png" alt="CLV Distribution" loading="lazy">
+                    <div class="viz-overlay">
+                        <a href="visualizations/07_clv_distribution.png" target="_blank" class="btn btn-light">
+                            <i class="fas fa-expand"></i> View Full Size
+                        </a>
+                    </div>
+                </div>
+                <div class="viz-content">
+                    <span class="viz-badge static-badge">ggplot2</span>
+                    <h3>Customer Lifetime Value Distribution</h3>
+                    <p class="viz-description">
+                        Grouped bar chart showing CLV distribution across customer segments. 
+                        Validates segmentation effectiveness and identifies high-value brackets.
+                    </p>
+                    <div class="viz-insights">
+                        <h4>Key Insights</h4>
+                        <ul>
+                            <li>Champions concentrated in £2K-5K+ CLV brackets</li>
+                            <li>67% of Lost customers have CLV under £500</li>
+                            <li>Clear validation of segment quality and value</li>
+                        </ul>
+                    </div>
+                    <div class="viz-tech">
+                        <i class="fas fa-tools"></i> 
+                        <span>R, ggplot2, position_dodge, faceting</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Viz 8: Interactive Customer Analysis -->
+            <div class="viz-item interactive" data-category="interactive">
+                <div class="viz-image">
+                    <img src="visualizations/02_customer_segmentation.png" alt="Interactive Customer Analysis" loading="lazy">
+                    <div class="viz-overlay">
+                        <a href="visualizations/08_interactive_customer_analysis.html" target="_blank" class="btn btn-light">
+                            <i class="fas fa-external-link-alt"></i> Launch Interactive
+                        </a>
+                    </div>
+                </div>
+                <div class="viz-content">
+                    <span class="viz-badge interactive-badge">Plotly</span>
+                    <h3>Interactive Customer Analysis</h3>
+                    <p class="viz-description">
+                        Multi-dimensional scatter plot with hover tooltips, zoom, pan, and filter capabilities. 
+                        Visualizes relationships between recency, spending, transaction frequency, and churn risk.
+                    </p>
+                    <div class="viz-insights">
+                        <h4>Interactive Features</h4>
+                        <ul>
+                            <li>Hover over 4,372 customers for detailed information</li>
+                            <li>Filter by segment using interactive legend</li>
+                            <li>Zoom and pan to explore patterns and outliers</li>
+                            <li>Bubble size represents transaction frequency</li>
+                            <li>Download high-resolution PNG from toolbar</li>
+                        </ul>
+                    </div>
+                    <div class="viz-tech">
+                        <i class="fas fa-tools"></i> 
+                        <span>R, Plotly, htmlwidgets, log scale</span>
+                    </div>
+                    <a href="visualizations/08_interactive_customer_analysis.html" target="_blank" class="btn btn-primary">
+                        <i class="fas fa-play"></i> Launch Visualization
+                    </a>
+                </div>
+            </div>
+
+            <!-- Viz 9: Interactive Cohort Retention -->
+            <div class="viz-item interactive" data-category="interactive">
+                <div class="viz-image">
+                    <img src="visualizations/06_rfm_heatmap.png" alt="Interactive Cohort Retention" loading="lazy">
+                    <div class="viz-overlay">
+                        <a href="visualizations/09_interactive_cohort_retention.html" target="_blank" class="btn btn-light">
+                            <i class="fas fa-external-link-alt"></i> Launch Interactive
+                        </a>
+                    </div>
+                </div>
+                <div class="viz-content">
+                    <span class="viz-badge interactive-badge">Plotly</span>
+                    <h3>Interactive Cohort Retention Heatmap</h3>
+                    <p class="viz-description">
+                        Dynamic heatmap tracking 13 monthly cohorts over time with interactive hover tooltips. 
+                        Color gradient indicates retention strength for easy pattern recognition.
+                    </p>
+                    <div class="viz-insights">
+                        <h4>Interactive Features</h4>
+                        <ul>
+                            <li>Hover for exact retention percentages by cohort and month</li>
+                            <li>Color gradient indicates retention strength (darker = better)</li>
+                            <li>Track cohorts across entire customer lifecycle</li>
+                            <li>Export high-resolution image from toolbar</li>
+                            <li>Zoom into specific time periods</li>
+                        </ul>
+                    </div>
+                    <div class="viz-tech">
+                        <i class="fas fa-tools"></i> 
+                        <span>R, Plotly, tidyr, pivot_wider</span>
+                    </div>
+                    <a href="visualizations/09_interactive_cohort_retention.html" target="_blank" class="btn btn-primary">
+                        <i class="fas fa-play"></i> Launch Visualization
+                    </a>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Design Philosophy -->
+    <section class="design-section">
+        <div class="container">
+            <h2 class="section-title">Design Philosophy</h2>
+            <div class="design-grid">
+                <div class="design-card">
+                    <i class="fas fa-eye"></i>
+                    <h3>Clarity Over Complexity</h3>
+                    <p>Each visualization has one clear message. Removed chart junk and unnecessary elements to focus attention on insights.</p>
+                </div>
+                <div class="design-card">
+                    <i class="fas fa-palette"></i>
+                    <h3>Consistent Branding</h3>
+                    <p>Unified color palette, typography, and styling across all visualizations creates professional, cohesive portfolio.</p>
+                </div>
+                <div class="design-card">
+                    <i class="fas fa-universal-access"></i>
+                    <h3>Accessibility First</h3>
+                    <p>High contrast colors, large readable text, and color-blind friendly palettes ensure visualizations work for all audiences.</p>
+                </div>
+                <div class="design-card">
+                    <i class="fas fa-lightbulb"></i>
+                    <h3>Actionable Insights</h3>
+                    <p>Every chart answers a business question with clear titles, contextual subtitles, and interpretation guidance.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta">
+        <div class="container">
+            <h2>Ready to Bring Data to Life?</h2>
+            <p>Let's create compelling visualizations that drive business decisions</p>
+            <div class="cta-buttons">
+                <a href="mailto:victorbgomes23@gmail.com" class="btn btn-primary btn-large">
+                    <i class="fas fa-envelope"></i> Get in Touch
+                </a>
+                <a href="dashboard.html" class="btn btn-outline btn-large">
+                    <i class="fas fa-tachometer-alt"></i> View Dashboard
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-left">
+                    <h3>Victor Gomes</h3>
+                    <p>Data Analyst | Business Intelligence Specialist</p>
+                </div>
+                <div class="footer-center">
+                    <div class="social-links">
+                        <a href="https://github.com/VictorGomes-23" target="_blank" title="GitHub">
+                            <i class="fab fa-github"></i>
+                        </a>
+                        <a href="https://www.linkedin.com/in/victorgomes23" target="_blank" title="LinkedIn">
+                            <i class="fab fa-linkedin"></i>
+                        </a>
+                        <a href="mailto:victorbgomes23@gmail.com" title="Email">
+                            <i class="fas fa-envelope"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="footer-right">
+                    <p>&copy; 2026 Victor Gomes. All rights reserved.</p>
+                    <p>Built with HTML, CSS, JavaScript</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="assets/js/script.js"></script>
+</body>
+</html>
