@@ -469,6 +469,7 @@ ecommerce-customer-analytics/
 ├── README.md                          # You are here
 │
 ├── data/
+|   ├── README.md
 │   ├── raw/                          # Original dataset (not tracked)
 │   └── processed/                    # Cleaned, analysis-ready data
 │       ├── retail_customers_only.csv     # Main transaction data
